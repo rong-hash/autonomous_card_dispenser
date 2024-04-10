@@ -62,7 +62,19 @@ Window {
         //initialItem: authScreen
         function newStackFormLoaded(form){
             rootWindow.newFormLoaded(form);
+        }
 
+    }
+
+    Connections {
+        target: sighub
+        // Assuming myObject was declared and exposed from C++
+        function onLoadForm(form, style){
+            console.log("Loading:", form)
+            if (style == 0)
+                stackView.replace(form, StackView.PopTransition);
+            if (style == 1)
+                stackView.replace(form, StackView.PushTransition);
         }
     }
 

@@ -37,6 +37,7 @@ class QPicamera2Item(QQuickPaintedItem):
 class QPicamera2ItemService(QObject):
     update_overlay_signal = pyqtSignal(QImage)
     update_frame_signal = pyqtSignal(QImage)
+    qr_decode = pyqtSignal(bytes)
     
 
     def __init__(self, picam2:Picamera2|None = None, width=800, height=600, preview_window=None):
@@ -126,10 +127,13 @@ class QPicamera2ItemService(QObject):
         self.update_frame_signal.emit(self.image)
         if (self.orderCapture):
             self.orderCapture = False
-            self.image.save('temp.bmp','BMP',100)
+            #self.image.save('temp.bmp','BMP',100)
             rl:list = decode(imgnp)
-            if (len(rl) == 0): return
-            print(rl[0])
+            if (len(rl) != 1): return
+            self.timer.stop()   #Stop Timer
+            print(rl[0].data)
+            # print(type(rl[0].data))
+            self.qr_decode.emit(rl[0].data)
 
 
     @pyqtSlot()

@@ -11,10 +11,12 @@ if __name__ == "__main__":
     os.environ["QT_QPA_PLATFORM"]="eglfs"
     os.environ["QT_QPA_EGLFS_HIDECURSOR"]="1"
     app = QGuiApplication(sys.argv)
+    sighub = QMLSigHub()
     #Register types
     qmlRegisterType(QPicamera2Item, 'PiCamera2', 1, 0, 'Picamera2Item')
     
     engine = QQmlApplicationEngine()
+    engine.rootContext().setContextProperty('sighub',sighub)
     engine.quit.connect(app.quit)
     engine.load('KIOSK_ui_py/content/App.qml')
     # engine.load('ui/App.qml')
@@ -25,7 +27,7 @@ if __name__ == "__main__":
 
     # picamera2 = Picamera2()  # Your Picamera2 setup here
     cameraService = QPicamera2ItemService()
-    sighub = QMLSigHub()
+
     sighub.registerQML(rootObject)
     sighub.registerCameeraService(cameraService)
 

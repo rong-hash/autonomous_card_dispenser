@@ -11,7 +11,7 @@ import QtQuick.Controls 2.15
 import PiCamera2 1.0
 
 Rectangle {
-    id: rectangle
+    id: authform
     width: 1920
     height: 1080
     color: "#00ffffff"
@@ -22,8 +22,8 @@ Rectangle {
 
     Button {
         id: buttonCancel
-        x: 1524
-        y: 72
+        x: 1525
+        y: 70
         width: 275
         height: 100
         text: qsTr("Cancel")
