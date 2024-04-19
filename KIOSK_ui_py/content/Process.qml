@@ -5,7 +5,14 @@ ProcessForm {
         stackView.newStackFormLoaded(this);
         console.debug("process_loaded");
     }
-    Connections:{
+    /*
+      Status Define:
+      0:Success
+      1:Failed_Timed_Out
+      2:Failed_Bad_Identity
+      3:Failed_Bad_Card
+    */
+    Connections {
         target: stackView
         function onResult(status){
             console.log("[Process]Status:", status);

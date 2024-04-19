@@ -7,29 +7,25 @@ from paho.mqtt.enums import CallbackAPIVersion
 from threading import Timer,Lock
 
 
+class NetMessageType:
+    connection = 0
+    response = 1
+    request = 2
+    timeout = 3
 
 class ConnectionStatus:
     connected = 0
     disconnected = 1
 
-class Promise:
-    def __init__(self,data:bytes, expected_type:int, timeout:int, handler) -> None:
-        self.data = data
-        self.expected_type = expected_type
-        self.timeout = timeout
-        self.timer = Timer(timeout,handler,(expected_type,))
-    
-    def start(self):
-        self.timer.start()
-    
-    def cancel(self):
-        self.timer.cancel()
-
 class NetService(QObject):
-    connection_status_changed = pyqtSignal(int)
-    new_response = pyqtSignal(bytes)
-    new_request = pyqtSignal(bytes)
-    timed_out = pyqtSignal()            
+
+    # Status Define:
+    # 0:Connection: 0|1
+    # 1:Response: bytes
+    # 2:Request: bytes
+    # 3:Timeout
+
+    net_message = pyqtSignal(int, object)       
 
 
     def __init__(self, parent: QObject | None = None) -> None:
@@ -38,13 +34,23 @@ class NetService(QObject):
         self.port:int = None
         self.topic:str = None
         self.client_id:str = None
-        self.client:mqtt_client.Client = None
-        self.request_types:set = {0x30}
         self.lock = Lock()
-        self.expected_types:set = {}
-        self.promise:Promise = None
-        
+        self.client_init()
         return
+    
+    def reset(self):
+        self.lock.acquire()
+        self.client.on_disconnect = None
+        self.client.loop_stop()
+        self.client_init()
+        self.lock.release()
+        self.run()
+    
+    def client_init(self):
+        self.client:mqtt_client.Client = None
+        self.request_types:set = set((0x30,))
+        self.expected_types:set = set()
+        self.promise:Timer = None
     
     def set_connection(self,broker:str, port:int, topic:str, client_id:str):
         self.broker = broker
@@ -65,6 +71,7 @@ class NetService(QObject):
         client.tls_set(ca_certs='certs/ca.crt',certfile='certs/client.crt',keyfile='certs/client.key')
         client.on_connect = self.on_connect_handler
         client.on_disconnect = self.on_disconnect_handler
+        client.on_message = self.on_message_handler
         client.will_set(self.topic,bytearray([0x50,0x01]),2)
         client.connect(self.broker, self.port)
         self.client =  client
@@ -78,12 +85,12 @@ class NetService(QObject):
                 self.client.disconnect()
                 return
             print(f"Subscribed to {self.topic}")
-            self.connection_status_changed.emit(ConnectionStatus.connected)
+            self.net_message.emit(NetMessageType.connection ,ConnectionStatus.connected)
         else:
             print("Failed to connect, return code %d\n", rc)
 
     def on_disconnect_handler(self,client,userdata,rc):
-        self.connection_status_changed.emit(ConnectionStatus.disconnected)
+        self.net_message.emit(NetMessageType.connection , ConnectionStatus.disconnected)
 
     def on_message_handler(self, client, userdata, msg):
 
@@ -102,12 +109,12 @@ class NetService(QObject):
             self.promise.cancel()
             self.promise = None
             self.expected_types.remove(msg_type)
-            self.new_response.emit(data)
+            self.net_message.emit(NetMessageType.response , data)
         self.lock.release()
         pass
 
     def request_handler(self, data:bytes):
-        self.new_request.emit(data)
+        self.net_message.emit(NetMessageType.request , data)
         pass
 
     def run(self):
@@ -123,23 +130,23 @@ class NetService(QObject):
             self.expected_types.remove(exptected_type)
             self.promise = None
             self.lock.release()
-            self.timed_out.emit()
+            self.net_message.emit(NetMessageType.timeout , None)
         else:
             self.lock.release()
 
 
-    @pyqtSlot(bytes)
+    #@pyqtSlot(bytes)
     def PublishSlot(self, data:bytes):
         self.client.publish(self.topic,data,2)
 
-    @pyqtSlot(bytes, int, int)
+    #@pyqtSlot(bytes, int, int)
     def ExpectResponseSlot(self, data:bytes, expected_type:int, timeout:int):
         self.lock.acquire()
         if self.promise != None:
             self.lock.release()
             print("Rejected: Pending Request")
             return
-        self.promise = Promise(data, expected_type, timeout)
+        self.promise = Timer(timeout,self.timeout_callback,(expected_type,))
         self.expected_types.add(expected_type)  #Register types
         self.lock.release()
         self.PublishSlot(data)
