@@ -55,8 +55,17 @@ Window {
     }
 
 
+    /*
+      Status Define:
+      0:Success
+      1:Failed_Timed_Out
+      2:Failed_Bad_Identity
+      3:Failed_Bad_Card
+    */
+
 
     StackView {
+        signal result(int status)
         id: stackView
         anchors.fill: parent
         //initialItem: authScreen
@@ -68,13 +77,18 @@ Window {
 
     Connections {
         target: sighub
-        // Assuming myObject was declared and exposed from C++
+
         function onLoadForm(form, style){
             console.log("Loading:", form)
             if (style == 0)
                 stackView.replace(form, StackView.PopTransition);
             if (style == 1)
                 stackView.replace(form, StackView.PushTransition);
+        }
+
+        function onResultReceived(status){
+            console.log("Relay:",status)
+            stackView.result(status)
         }
     }
 

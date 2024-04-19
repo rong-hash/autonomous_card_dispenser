@@ -16,6 +16,7 @@ class QMLSigHub(QObject):
     videoFeedStart = pyqtSignal(QPicamera2Item)
     videoFeedStop = pyqtSignal()
     loadForm = pyqtSignal(str,int,name = 'loadForm')
+    resultReceived = pyqtSignal(int,name = "resultReceived")
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self.formStatus = Forms.MainScreen
@@ -44,6 +45,7 @@ class QMLSigHub(QObject):
                 self.videoFeedStart.emit(cameraViewObj)
                 pass
             case Forms.Process:
+                self.resultReceived.emit(2)
                 pass
             case _:
                 raise RuntimeError("Undefined Form ID")
