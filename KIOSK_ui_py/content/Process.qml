@@ -16,6 +16,11 @@ ProcessForm {
         target: stackView
         function onResult(status){
             console.log("[Process]Status:", status);
+            if (status == 1) {
+                busyIndicator.visible = false;
+                cross.visible = true;
+                text1.text = qsTr("Failed: Connection Timed Out");
+            }
         }
     }
 }

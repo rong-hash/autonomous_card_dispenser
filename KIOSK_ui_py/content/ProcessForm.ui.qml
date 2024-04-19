@@ -15,12 +15,40 @@ Item {
     height: 1080
 
     property int formID: 3
+    property alias busyIndicator: busyIndicator
+    property alias cross: cross
+    property alias text1: text1
 
     BusyIndicator {
         id: busyIndicator
         width: 300
         height: 300
         anchors.verticalCenter: parent.verticalCenter
+        anchors.horizontalCenter: parent.horizontalCenter
+    }
+
+    Image {
+        id: cross
+        source: "images/cross.png"
+        fillMode: Image.PreserveAspectFit
+        width: 300
+        height: 300
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.horizontalCenter: parent.horizontalCenter
+        visible: false
+    }
+
+    Text {
+        id: text1
+        y: 755
+        width: 190
+        height: 15
+        text: qsTr("Processing")
+        anchors.bottom: parent.bottom
+        font.pixelSize: 48
+        horizontalAlignment: Text.AlignHCenter
+        font.bold: true
+        anchors.bottomMargin: 310
         anchors.horizontalCenter: parent.horizontalCenter
     }
 }
