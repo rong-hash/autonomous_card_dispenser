@@ -7,7 +7,7 @@ from paho.mqtt.enums import CallbackAPIVersion
 from threading import Timer,Lock
 
 
-class NetMessageType:
+class NetSignalType:
     connection = 0
     response = 1
     request = 2
@@ -85,18 +85,19 @@ class NetService(QObject):
                 self.client.disconnect()
                 return
             print(f"Subscribed to {self.topic}")
-            self.net_message.emit(NetMessageType.connection ,ConnectionStatus.connected)
+            self.net_message.emit(NetSignalType.connection ,ConnectionStatus.connected)
         else:
             print("Failed to connect, return code %d\n", rc)
 
     def on_disconnect_handler(self,client,userdata,rc):
-        self.net_message.emit(NetMessageType.connection , ConnectionStatus.disconnected)
+        self.net_message.emit(NetSignalType.connection , ConnectionStatus.disconnected)
 
     def on_message_handler(self, client, userdata, msg):
 
-        print(f"Received `{msg.payload.decode()}` from `{msg.topic}` topic")
+        print(f"Received `{msg.payload}` from `{msg.topic}` topic")
     
         if (len(msg.payload) == 0): return
+        print(f'payload_len:{len(msg.payload)}')
         if (msg.payload[0] in self.expected_types): self.expected_handler(msg.payload)
         if (msg.payload[0] in self.request_types): self.request_handler(msg.payload)
 
@@ -109,12 +110,12 @@ class NetService(QObject):
             self.promise.cancel()
             self.promise = None
             self.expected_types.remove(msg_type)
-            self.net_message.emit(NetMessageType.response , data)
+            self.net_message.emit(NetSignalType.response , data)
         self.lock.release()
         pass
 
     def request_handler(self, data:bytes):
-        self.net_message.emit(NetMessageType.request , data)
+        self.net_message.emit(NetSignalType.request , data)
         pass
 
     def run(self):
@@ -130,7 +131,7 @@ class NetService(QObject):
             self.expected_types.remove(exptected_type)
             self.promise = None
             self.lock.release()
-            self.net_message.emit(NetMessageType.timeout , None)
+            self.net_message.emit(NetSignalType.timeout , None)
         else:
             self.lock.release()
 

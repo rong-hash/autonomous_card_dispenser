@@ -1,7 +1,8 @@
 from PyQt5.QtCore import QObject,QVariant, QMetaType, pyqtSlot, pyqtSignal
 from PyQt5.QtQuick import QQuickItem
 from CameraService import QPicamera2Item, QPicamera2ItemService
-from NetService import NetService, NetMessageType, ConnectionStatus
+from NetService import NetService, NetSignalType, ConnectionStatus
+from NetMessageUtil import *
 
 class Forms():
     RootWindow = 0
@@ -51,8 +52,20 @@ class QMLSigHub(QObject):
             case Forms.Process:
                 if (self.qrInfo != None):
                     print('[MQTT] Publishing Request')
-                    self.netService.ExpectResponseSlot(bytes((0x10))+self.qrInfo,0x20,5)          
+                    self.netService.ExpectResponseSlot(
+                        QRAuthRequestMsg.toBytes(self.qrInfo),
+                        NetMessageType.QRAuthResponse,
+                        5)          
                     self.qrInfo = None
+                elif (self.faceInfo != None):
+                    print('[MQTT] Publishing Request')
+                    self.netService.ExpectResponseSlot(
+                        FRAuthRequestMsg.toBytes(self.faceInfo),
+                        NetMessageType.FRAuthResponse,
+                        5)          
+                    self.faceInfo = None
+                else:
+                    raise RuntimeError("No Data to Process")
                 #self.resultReceived.emit(2)
                 pass
             case _:
@@ -61,6 +74,13 @@ class QMLSigHub(QObject):
     @pyqtSlot(bytes)
     def QRDecodeHandle(self, code:bytes):
         self.qrInfo = code
+        self.loadForm.emit("Process.qml",Transition.Push)
+        pass
+
+    @pyqtSlot(bytes)
+    def FaceDetectedHandle(self, code:bytes):
+        self.faceInfo = code
+        print(len(self.faceInfo))
         self.loadForm.emit("Process.qml",Transition.Push)
         pass
 
@@ -74,18 +94,18 @@ class QMLSigHub(QObject):
     #   3:Failed_Bad_Card
     
         match (status):
-            case NetMessageType.connection:
+            case NetSignalType.connection:
                 if data == ConnectionStatus.disconnected:
                     self.netService.reset()
                     print("[MQTT] Disconnected")
                 else:
                     print("[MQTT] Connected")
                 pass
-            case NetMessageType.request:
+            case NetSignalType.request:
                 pass
-            case NetMessageType.response:
+            case NetSignalType.response:
                 pass
-            case NetMessageType.timeout:
+            case NetSignalType.timeout:
                 if (self.formStatus == Forms.Process):
                     self.resultReceived.emit(1)
 
@@ -97,6 +117,7 @@ class QMLSigHub(QObject):
     def registerCameeraService(self,obj:QPicamera2ItemService):
         self.videoFeedStart.connect(obj.register_camearitem)
         obj.qr_decode.connect(self.QRDecodeHandle)
+        obj.face_detect.connect(self.FaceDetectedHandle)
 
     def registerNetService(self, obj:NetService):
         obj.net_message.connect(self.NetMessageHandle)

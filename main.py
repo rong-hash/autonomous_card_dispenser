@@ -42,7 +42,6 @@ if __name__ == "__main__":
 
     # picamera2.start()
 
-    print("fw")
     sys.exit(app.exec())
 
 # from PyQt5.QtWidgets import QApplication

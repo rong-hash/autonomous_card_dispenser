@@ -7,6 +7,9 @@ from PyQt5.QtGui import QImage, QPainter
 from PyQt5.QtQuick import QQuickPaintedItem
 from picamera2.picamera2 import Picamera2
 from pyzbar.pyzbar import decode
+from facedetection.FaceDetector import FaceDetector
+from io import BytesIO
+from PIL import Image
 
 class QPicamera2Item(QQuickPaintedItem):
     def __init__(self, parent=None):
@@ -38,6 +41,7 @@ class QPicamera2ItemService(QObject):
     update_overlay_signal = pyqtSignal(QImage)
     update_frame_signal = pyqtSignal(QImage)
     qr_decode = pyqtSignal(bytes)
+    face_detect = pyqtSignal(bytes)
     
 
     def __init__(self, picam2:Picamera2|None = None, width=800, height=600, preview_window=None):
@@ -55,6 +59,7 @@ class QPicamera2ItemService(QObject):
         self.timer.setInterval(500)
         self.timer.timeout.connect(self.capture)
         self.orderCapture = False
+        self.faceDetector = FaceDetector()
 
         #self.update_overlay_signal.connect(self.update_overlay)
         
@@ -129,11 +134,25 @@ class QPicamera2ItemService(QObject):
             self.orderCapture = False
             #self.image.save('temp.bmp','BMP',100)
             rl:list = decode(imgnp)
-            if (len(rl) != 1): return
-            self.timer.stop()   #Stop Timer
-            print(rl[0].data)
-            # print(type(rl[0].data))
-            self.qr_decode.emit(rl[0].data)
+            if (len(rl) != 1): 
+                rl = self.faceDetector.detect_faces(imgnp)
+                if (len(rl) == 1):
+                    self.timer.stop()
+                    # cut = imgnp[rl[0][1]:rl[0][3],rl[0][0]:rl[0][2],:3]
+                    # cut = np.ascontiguousarray(cut)
+                    imgobj = Image.fromarray(imgnp)
+                    byteout = BytesIO()
+                    imgobj.save(byteout,format='JPEG')
+                    imgobj.save('face.jpg',format='JPEG')
+                    #imgobj = QImage(cut.data, cut.shape[1], cut.shape[0], fmt)
+                    #imgobj.save('face.bmp','BMP',100)
+                    #self.image.save('face.bmp','BMP',100)
+                    self.face_detect.emit(byteout.getvalue())
+            else:
+                self.timer.stop()   #Stop Timer
+                print(rl[0].data)
+                # print(type(rl[0].data))
+                self.qr_decode.emit(rl[0].data)
 
 
     @pyqtSlot()
