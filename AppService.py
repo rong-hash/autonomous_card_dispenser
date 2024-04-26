@@ -3,6 +3,7 @@ from PyQt5.QtQuick import QQuickItem
 from CameraService import QPicamera2Item, QPicamera2ItemService
 from NetService import NetService, NetSignalType, ConnectionStatus
 from NetMessageUtil import *
+from threading import Timer
 
 class Forms():
     RootWindow = 0
@@ -25,6 +26,28 @@ class QMLSigHub(QObject):
         self.netService:NetService = None
         self.qrInfo:bytes = None
         return
+    
+
+    def registerQML(self,root:QObject):
+        root.newFormLoaded.connect(self.newFormLoadHandle)
+
+    def registerCameeraService(self,obj:QPicamera2ItemService):
+        self.videoFeedStart.connect(obj.register_camearitem)
+        obj.qr_decode.connect(self.QRDecodeHandle)
+        obj.face_detect.connect(self.FaceDetectedHandle)
+
+    def registerNetService(self, obj:NetService):
+        obj.net_message.connect(self.NetMessageHandle)
+        self.netService = obj
+        self.netService.run()
+    
+    def returnToMain(self):
+        self.loadForm("MainScreen.qml",Transition.Pop) #Lock is not necessary here.
+    
+    def delayedReturn(self, delay:int):
+        self._delayThread = Timer(delay, self.returnToMain)
+        self._delayThread.start()
+        pass
     
     @pyqtSlot(QQuickItem)
     def newFormLoadHandle(self,obj:QQuickItem):
@@ -108,18 +131,7 @@ class QMLSigHub(QObject):
             case NetSignalType.timeout:
                 if (self.formStatus == Forms.Process):
                     self.resultReceived.emit(1)
+                    self.delayedReturn(5)
 
         pass
 
-    def registerQML(self,root:QObject):
-        root.newFormLoaded.connect(self.newFormLoadHandle)
-
-    def registerCameeraService(self,obj:QPicamera2ItemService):
-        self.videoFeedStart.connect(obj.register_camearitem)
-        obj.qr_decode.connect(self.QRDecodeHandle)
-        obj.face_detect.connect(self.FaceDetectedHandle)
-
-    def registerNetService(self, obj:NetService):
-        obj.net_message.connect(self.NetMessageHandle)
-        self.netService = obj
-        self.netService.run()
