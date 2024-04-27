@@ -72,7 +72,7 @@ class QPicamera2ItemService(QObject):
         self.picamera2.start()
 
     def cleanup(self):
-        print("cleanup called")
+        print(f"cleanup called:{self.running}")
         if not self.running:
             return
         self.running = False
@@ -87,6 +87,7 @@ class QPicamera2ItemService(QObject):
             self.preview_window.qpicamera2 = None
 
     def init(self):
+        print(f'init_called:{self.running}')
         if self.running: return
         self.overlay = None
         self.picamera2.attach_preview(self.preview_window)
@@ -153,6 +154,11 @@ class QPicamera2ItemService(QObject):
                 print(rl[0].data)
                 # print(type(rl[0].data))
                 self.qr_decode.emit(rl[0].data)
+
+
+    @pyqtSlot()
+    def quit(self):
+        self.timer.stop()
 
 
     @pyqtSlot()
