@@ -33,6 +33,12 @@ Window {
         font.bold: true
         hoverEnabled: false
         model:["English","中文（简体）"]
+        onActivated: {
+            if (currentIndex == 1){
+                translator.load("msf.qm")
+            }
+
+        }
 
         // delegate: Item {
         //     width: comboBox.width
