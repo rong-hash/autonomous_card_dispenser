@@ -22,10 +22,12 @@ if __name__ == "__main__":
     engine.quit.connect(app.quit)
     engine.load('KIOSK_ui_py/content/App.qml')
 
-    translator = QTranslator()
-    translator.load('lang/mls.qm')
-    app.installTranslator(translator)
-    engine.retranslate()
+    # translator = QTranslator()
+    # translator.load('lang/mls.qm')
+    # app.installTranslator(translator)
+    # engine.retranslate()
+    # app.removeTranslator(translator)
+    # engine.retranslate()
     # engine.load('ui/App.qml')
 
     if (engine.rootObjects().count == 0): raise RuntimeError("QML initialization failed")
@@ -38,6 +40,7 @@ if __name__ == "__main__":
     netService = NetService()
     netService.set_connection('10.106.65.159',8883,'icdev/term1','icdev_term1')
 
+    sighub.registerEnginee(app,engine)
     sighub.registerQML(rootObject)
     sighub.registerCameeraService(cameraService)
     sighub.registerNetService(netService)

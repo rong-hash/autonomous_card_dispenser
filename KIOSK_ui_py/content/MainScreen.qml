@@ -9,6 +9,7 @@ MainScreenForm {
     }
 
     buttonRequest.onClicked: {
+        stackView.cleanForm()
         stackView.replace("Auth.qml", StackView.PushTransition);
     }
 }

@@ -7,7 +7,8 @@ AuthForm {
     }
 
     buttonCancel.onClicked: {
-        stackView.replace("MainScreen.qml", StackView.PopTransition);
+        stackView.returnToMain()
+        // stackView.replace("MainScreen.qml", StackView.PopTransition);
         console.debug(stackView.depth);
     }
 }

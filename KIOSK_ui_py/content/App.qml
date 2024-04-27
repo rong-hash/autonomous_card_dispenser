@@ -15,6 +15,9 @@ Window {
     property int formID: 0
 
     signal newFormLoaded(form:Item);
+    signal cleanForm();
+    signal returnToMain();
+    signal langChanged(lang:string);
 
     Image {
         id: image
@@ -25,17 +28,20 @@ Window {
 
     ComboBox {
         id: comboBox
-        x: 1704
+        x: 1700
         y: 936
         width: 200
         height: 60
-        font.pointSize: 18
+        font.pointSize: 20
         font.bold: true
         hoverEnabled: false
         model:["English","中文（简体）"]
         onActivated: {
             if (currentIndex == 1){
-                translator.load("msf.qm")
+                rootWindow.langChanged("zh")
+            }
+            if (currentIndex == 0){
+                rootWindow.langChanged("en")
             }
 
         }
@@ -77,6 +83,12 @@ Window {
         //initialItem: authScreen
         function newStackFormLoaded(form){
             rootWindow.newFormLoaded(form);
+        }
+        function cleanForm(){
+            rootWindow.cleanForm();
+        }
+        function returnToMain(){
+            rootWindow.returnToMain();
         }
 
     }
