@@ -203,7 +203,7 @@ class QMLSigHub(QObject):
         match (status):
             case NetSignalType.connection:
                 if data == ConnectionStatus.disconnected:
-                    self.netService.reset()
+                    # self.netService.reset()
                     print("[MQTT] Disconnected")
                 else:
                     print("[MQTT] Connected")

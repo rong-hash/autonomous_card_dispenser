@@ -85,12 +85,13 @@ class NetService(QObject):
                 self.client.disconnect()
                 return
             print(f"Subscribed to {self.topic}")
-            self.net_message.emit(NetSignalType.connection ,ConnectionStatus.connected)
+            self.net_message.emit(NetSignalType.connection, ConnectionStatus.connected)
         else:
             print("Failed to connect, return code %d\n", rc)
 
     def on_disconnect_handler(self,client,userdata,rc):
         self.net_message.emit(NetSignalType.connection , ConnectionStatus.disconnected)
+        pass
 
     def on_message_handler(self, client, userdata, msg):
 

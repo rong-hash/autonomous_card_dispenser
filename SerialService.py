@@ -20,7 +20,9 @@ class SerialService (QObject):
 
     def __init__(self, device:str) -> None:
         super().__init__(parent=None)
-        self.ser = Serial(device,9600)
+        self.ser = Serial(device,115200)
+        self.ser.reset_input_buffer()
+        self.ser.reset_output_buffer()
         self.serLock = threading.Lock()
         self._pollThread = threading.Thread(target=self.read_from_serial)
         self._pollThread.daemon = True
@@ -44,32 +46,42 @@ class SerialService (QObject):
 
     # Function to read data from serial port on a separate thread
     def read_from_serial(self):
+        # while True:
+        #     data = self.ser.read(128)
+        #     if b'EOF' in data:
+        #         print(data)
+        #         break
+        #     print(data)
+        # ser.close()
         while True:
             with self.serLock:
                 if self.ser.in_waiting > 0:
-                    data = self.ser.read()
+                    data = self.ser.read(self.ser.in_waiting)
                     print(f"Received data: {data}")
-                    if (self.promise != None):
-                        self.promise.cancel() 
-                        match (data):
-                            case SerialMessageType.ack:
-                                self.responseSignal.emit(data)
-                                self.promise = threading.Timer(10, self.timeout)
-                                self.promise.start()
-                                pass
-                            case SerialMessageType.inPosition:
-                                self.responseSignal.emit(data)
-                                self.promise = None
-                                pass
-                            case SerialMessageType.failure:
-                                self.responseSignal.emit(data)
-                                self.promise = None
-                                pass
-                            case _:
-                                continue
+                    # if (self.promise != None):
+                    #     self.promise.cancel() 
+                    #     match (data):
+                    #         case SerialMessageType.ack:
+                    #             self.responseSignal.emit(data)
+                    #             self.promise = threading.Timer(10, self.timeout)
+                    #             self.promise.start()
+                    #             pass
+                    #         case SerialMessageType.inPosition:
+                    #             self.responseSignal.emit(data)
+                    #             self.promise = None
+                    #             pass
+                    #         case SerialMessageType.failure:
+                    #             self.responseSignal.emit(data)
+                    #             self.promise = None
+                    #             pass
+                    #         case _:
+                    #             continue
 
             time.sleep(0.1)  # Short delay to prevent high CPU usage
 
 
-
+if __name__ == '__main__':
+    ser = SerialService('/dev/ttyAMA0')
+    while True:
+        pass
 

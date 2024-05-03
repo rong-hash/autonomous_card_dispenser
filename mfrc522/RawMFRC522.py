@@ -42,27 +42,41 @@ class RawMFRC522:
         return id, text
     
     def read_sector_times(self, trailer_block, key, max_try):
-        """
-        Read data from a sector of the RFID tag.
-
-        Args:
-            trailer_block (int): The block number of the sector trailer.
-
-        Returns:
-            tuple: A tuple containing the tag ID (as an integer) and the data read (as a string).
-        """
-        id, text = self.read_no_block(trailer_block)
         self.KEY = key
-        count = 1
-        while not text:
-            self.MFRC522.Init()
+        count = 0
+        for count in range(max_try):
             id, text = self.read_no_block(trailer_block)
-            count += 1
-            if (count == max_try): 
-                self.KEY = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
-                return None, None, count
+            if id != None:  break
         self.KEY = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
         return id, text, count
+    
+    def write_sector_times(self, trailer_block, key, data, max_try):
+        self.KEY = key
+        count = 0
+        for count in range(max_try):
+            id, text = self.write_no_block(data, trailer_block)
+            if id != None: break
+        self.KEY = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
+        return id, text, count
+    
+    def setkey_times(self, trailer_block, key, max_try, keyA = b'\xff\xff\xff\xff\xff\xff', keyB = b'\xff\xff\xff\xff\xff\xff', control=b'\xff\x07\x80'):
+        self.KEY = key
+        count = 0
+        for count in range(max_try):
+            id, text = self.setkey_no_block(trailer_block, keyA, keyB, control)
+            if id != None: break
+
+        self.KEY = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
+        return id, text, count
+    
+    def read_id_times(self, maxtry):
+        for count in range(maxtry):
+            id = self.read_id_no_block()
+            if id != None: break
+        if id == None:
+            return None, None
+        id = bytes(id[0:4])
+        return id
 
     def read_sectors(self, trailer_blocks):
         """
@@ -110,7 +124,7 @@ class RawMFRC522:
             return None
 
         # Convert UID to integer and return as the tag ID
-        return self._uid_to_num(uid)
+        return uid
 
     def read_no_block(self, trailer_block):
         """
@@ -231,12 +245,12 @@ class RawMFRC522:
         # Return the tag ID and the concatenated data
         return id, text_all
 
-    def write_no_block(self, text, trailer_block):
+    def write_no_block(self, data, trailer_block):
         """
         Attempt to write data to the RFID tag.
 
         Args:
-            text (str): The data to write.
+            data (bytes)): The data to write.
             trailer_block (int): The block number of the sector trailer.
             block_addr (tuple): The block numbers of the data blocks to write.
 
@@ -247,7 +261,6 @@ class RawMFRC522:
             raise ValueError("Invalid Trailer Block {trailer_block}")
 
         block_addr = (trailer_block-3, trailer_block-2, trailer_block-1)
-        text = str(text)
 
         # Send request to RFID tag
         (status, TagType) = self.MFRC522.Request(self.MFRC522.PICC_REQIDL)
@@ -274,8 +287,6 @@ class RawMFRC522:
         try:
             if status == self.MFRC522.MI_OK:
                 # Prepare the data to be written
-                data = bytearray()
-                data.extend(bytearray(text.ljust(len(block_addr) * 16).encode('ascii')))
                 i = 0
                 for block_num in block_addr:
                     # Write the data to the corresponding data blocks
@@ -286,7 +297,67 @@ class RawMFRC522:
             self.MFRC522.StopCrypto1()
 
             # Return the tag ID and the written data
-            return id, text[0:(len(block_addr) * 16)]
+            return id, data[0:(len(block_addr) * 16)]
+        except:
+            # Stop encryption and return None if an exception occurs
+            self.MFRC522.StopCrypto1()
+            return None, None
+
+    def setkey_no_block(self, trailer_block, keyA , keyB , control ):
+        """
+        Attempt to write data to the RFID tag.
+
+        Args:
+            data (bytes)): The data to write.
+            trailer_block (int): The block number of the sector trailer.
+            block_addr (tuple): The block numbers of the data blocks to write.
+
+        Returns:
+            tuple: A tuple containing the tag ID (as an integer) and the data written (as a string), or (None, None) if the operation fails.
+        """
+        if not self._check_trailer_block(trailer_block):
+            raise ValueError("Invalid Trailer Block {trailer_block}")
+        if not len(keyA) == 6 or not len(keyB) == 6 or not len(control) == 3:
+            raise ValueError("Invalid Parameter")
+        data = keyA + control + b'\x69' + keyB
+        block_addr = (trailer_block ,)
+
+        # Send request to RFID tag
+        (status, TagType) = self.MFRC522.Request(self.MFRC522.PICC_REQIDL)
+        if status != self.MFRC522.MI_OK:
+            return None, None
+
+        # Anticollision, return UID if success
+        (status, uid) = self.MFRC522.Anticoll()
+        if status != self.MFRC522.MI_OK:
+            return None, None
+
+        # Convert UID to integer and store as id
+        id = self._uid_to_num(uid)
+
+        # Select the RFID tag using the UID
+        self.MFRC522.SelectTag(uid)
+
+        # Authenticate with the sector trailer block using the default key
+        status = self.MFRC522.Authenticate(self.MFRC522.PICC_AUTHENT1A, trailer_block, self.KEY, uid)
+
+        # Read the sector trailer block
+        self.MFRC522.ReadTag(trailer_block)
+
+        try:
+            if status == self.MFRC522.MI_OK:
+                # Prepare the data to be written
+                i = 0
+                for block_num in block_addr:
+                    # Write the data to the corresponding data blocks
+                    self.MFRC522.WriteTag(block_num, data[(i*16):(i+1)*16])
+                    i += 1
+
+            # Stop encryption
+            self.MFRC522.StopCrypto1()
+
+            # Return the tag ID and the written data
+            return id, data
         except:
             # Stop encryption and return None if an exception occurs
             self.MFRC522.StopCrypto1()
