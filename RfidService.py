@@ -8,18 +8,22 @@ from RPi.GPIO import cleanup
 class RfidService(QObject):
     rfid_write_done = pyqtSignal(int)
     rfid_failure = pyqtSignal()
-    rfid_read_done = pyqtSignal(bytes)
+    rfid_read_done = pyqtSignal(int,int)
 
     def __init__(self, parent: QObject) -> None:
         super().__init__(parent)
+        keyfile = open('rfid_keys.json')
+        self.keymgn = json.load(keyfile)
+        keyfile.close()
         self.reader = RawMFRC522()
         self.wt:threading.Thread|None = None
+
 
     def write_attempt(self,data:bytes,block:int, key:list):
         pass
 
     
-    def new_card_work(self, sec1:bytes, sec2:bytes, req_id:bytes):
+    def new_card_work(self, sec1:bytes, sec2:bytes, req_id:int):
         uid = self.reader.read_id_times(3)
         if uid == None:
             self.rfid_failure.emit()
@@ -29,12 +33,11 @@ class RfidService(QObject):
             self.rfid_failure.emit()
             print('RFID Failure')
             return            
-        keymgn = json.load(open('rfid_keys.json'))
-        keyC = bytes.fromhex(keymgn['ps_key_c'])
-        keyA = bytes.fromhex(keymgn['ps_key_a'])
+        keyC = bytes.fromhex(self.keymgn['ps_key_c'])
+        keyA = bytes.fromhex(self.keymgn['ps_key_a'])
         sec1 = key_encode(sec1,uid)
         sec2 = key_encode (sec2,uid)
-        req_id = req_id + np.random.randint(256,size=44,dtype=np.uint8).tobytes()
+        req_id = req_id.to_bytes(length = 4, byteorder='little') + np.random.randint(256,size=44,dtype=np.uint8).tobytes()
         req_id = key_encode(req_id,uid)
         _, dt, _ = self.reader.write_sector_times(8*4+3,keyC,sec1,3)
         if dt == None:
@@ -53,10 +56,41 @@ class RfidService(QObject):
             return
         self.rfid_write_done.emit(int.from_bytes(uid,"little"))
         self.wt = None
+    
+    def verfiy_card_work(self):
+        uid = self.reader.read_id_times(3)
+        if uid == None:
+            self.rfid_failure.emit()
+            print('RFID Failure')
+            return
+        if len(uid) != 4:
+            self.rfid_failure.emit()
+            print('RFID Failure')
+            return
+        keyA = bytes.fromhex(self.keymgn['ps_key_a'])
+        _, dt, _ = self.reader.read_sector_times(15*4+3,keyA,3)
+        if dt == None:
+            self.rfid_failure.emit()
+            print('RFID Failure 4')
+            return
+        dt = bytes(dt)
+        req_id = key_encode(dt[0:4],uid)
+        self.rfid_read_done.emit(int.from_bytes(uid,"little"),int.from_bytes(req_id,"little"))
+        print(int.from_bytes(req_id,"little"))
+        self.wt = None
+        pass
 
-    def new_card(self,sec1:bytes,sec2:bytes,req_id:bytes):
-        if self.wt != None: return #AppService should ensure that only one thread is running
+    def new_card(self,sec1:bytes,sec2:bytes,req_id:int):
+        if self.wt != None: 
+            return #AppService should ensure that only one thread is running
+        req_id = req_id & 0xFFFFFFFF
         self.wt = threading.Thread(target=self.new_card_work,args=(sec1,sec2,req_id))
+        self.wt.start()
+
+    def verify_card(self):
+        if self.wt != None: 
+            return
+        self.wt = threading.Thread(target=self.verfiy_card_work)
         self.wt.start()
     
     def __del__(self):
@@ -159,17 +193,18 @@ if __name__ == '__main__':
     sec1 = key_encode(sec1,uid)
     sec2 = key_encode(sec2,uid)
 
-    print ('uid')
-    print(uid.hex())
-    print('sec1')
-    printbin(sec1)
+    # print ('uid')
+    # print(uid.hex())
+    # print('sec1')
+    # printbin(sec1)
 
-    print('sec2')
-    printbin(sec2)
+    # print('sec2')
+    # printbin(sec2)
 
-    req_id = np.random.randint(256,size=4,dtype=np.uint8).tobytes()
+    # req_id = np.random.randint(256,size=4,dtype=np.uint8).tobytes()
 
-    rs.new_card(sec1,sec2,req_id)
+    # rs.new_card(sec1,sec2,652)
+    rs.verify_card()
 
     pass
 

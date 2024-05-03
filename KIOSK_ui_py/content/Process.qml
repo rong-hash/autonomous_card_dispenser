@@ -14,6 +14,7 @@ ProcessForm {
       4:Failed_Mechanical_Failure
       5:Failed_Hardware_Fault
       6:Authorized
+      7:Request Expired
     */
     Connections {
         target: stackView
@@ -45,7 +46,12 @@ ProcessForm {
                 cross.visible = true;
                 text1.text = qsTr("Failed: Hardware Failure");
             } else if (status == 6) {
-                text1.text = qsTr("Authorized");
+                console.log("Authorized");
+                text1.text = qsTr("Authorized, Please Wait...");
+            } else if (status == 7) {
+                busyIndicator.visible = false;
+                cross.visible = true;
+                text1.text = qsTr("Request Expired");
             }
             
         }

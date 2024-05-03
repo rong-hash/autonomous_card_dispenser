@@ -29,7 +29,20 @@ class ICInfo:
 class QRAuthResponseMsg():
     id:int
     err:ErrCode
-    card:ICInfo
+    card:ICInfo = ICInfo()
+    @staticmethod
+    def toBytes(req_id, err,card) -> bytes:
+        return struct.pack(
+            '=1sIi',
+            NetMessageType.QRAuthResponse,
+            req_id,
+            err) + struct.pack(
+                'II64s64s',
+                card.uid,
+                card.room,
+                card.sec1,
+                card.sec2
+            )
 
 class QRAuthRequestMsg():
     id:int
@@ -37,15 +50,29 @@ class QRAuthRequestMsg():
     @staticmethod
     def toBytes(token) -> bytes:
         return struct.pack(
-            '1sI32s',
+            '=1sI32s',
             NetMessageType.QRAuthRequest,
             0x0 , 
             token)
-    
+
+
 class FRAuthResponseMsg():
     id:int
     err:ErrCode
     card:ICInfo
+    @staticmethod
+    def toBytes(req_id, err,card) -> bytes:
+        return struct.pack(
+            '=1sIi',
+            NetMessageType.FRAuthResponse,
+            req_id,
+            err) + struct.pack(
+                'II64s64s',
+                card.uid,
+                card.room,
+                card.sec1,
+                card.sec2
+            )  
 
 class FRAuthRequestMsg():
     id:int
@@ -53,39 +80,52 @@ class FRAuthRequestMsg():
     @staticmethod
     def toBytes(img) -> bytes:
         return struct.pack(
-            '1sI',
+            '=1sI',
             NetMessageType.FRAuthRequest,
             0x0) + img
 
-def unpackMsg(raw:bytes) -> QRAuthResponseMsg|FRAuthResponseMsg|None:
+class ServerAckMsg():
+    err:ErrCode
+    @staticmethod
+    def toBytes(err:ErrCode) -> bytes:
+        return struct.pack(
+            '=1sI',
+            NetMessageType.ServerAck,
+            err) 
+    
+def unpackMsg(raw:bytes) -> object|None:
     if (len(raw) == 0): return None
-    msgType = raw[0]
+    msgType = raw[0:1]
     obj = None
     match(msgType):
         case NetMessageType.QRAuthResponse:
-            if len(raw < 9): return None
+            if len(raw) < 9: return None
             obj = QRAuthResponseMsg()
             obj.id, obj.err = struct.unpack('Ii',raw[1:9])
             if obj.err == ErrCode.success:
-                obj.card.uid, 
-                obj.card.room, 
-                obj.card.sec1, 
-                obj.card.sec2 = struct.unpack('II64s64s',raw[9:])
+                obj.card = ICInfo()
+                obj.card.uid, obj.card.room, obj.card.sec1, obj.card.sec2 = struct.unpack('II64s64s',raw[9:])
             
             pass
         case NetMessageType.QRAuthRequest:
+            if len(raw) < 37: return None
+            obj = QRAuthRequestMsg()
+            obj.id = struct.unpack('I',raw[1:5])
+            obj.token = raw[5:]
             pass
         case NetMessageType.FRAuthResponse:
-            if len(raw < 3): return None
+            if len(raw) < 9: return None
             obj = FRAuthResponseMsg()
-            obj.id, obj.err = struct.unpack('Ii',raw[1:3])
+            obj.id, obj.err = struct.unpack('Ii',raw[1:9])
             if obj.err == ErrCode.success:
-                obj.card.uid, 
-                obj.card.room, 
-                obj.card.sec1, 
-                obj.card.sec2 = struct.unpack('II64s64s',raw[3:])
+                obj.card = ICInfo()
+                obj.card.uid, obj.card.room, obj.card.sec1, obj.card.sec2 = struct.unpack('II64s64s',raw[9:])
             pass
         case NetMessageType.FRAuthRequest:
+            if len(raw) < 5: return None
+            obj = FRAuthRequestMsg()
+            obj.id = struct.unpack('I',raw[1:5])
+            obj.img = raw[5:]
             pass
         case NetMessageType.InitNotification:
             pass
@@ -96,6 +136,9 @@ def unpackMsg(raw:bytes) -> QRAuthResponseMsg|FRAuthResponseMsg|None:
         case NetMessageType.RegisterNotification:
             pass
         case NetMessageType.ServerAck:
+            if len(raw) < 5: return None
+            obj = ServerAckMsg()
+            obj.err = struct.unpack('i',raw[1:5])
             pass
         case NetMessageType.RemoteCmd:
             pass
@@ -107,4 +150,7 @@ def unpackMsg(raw:bytes) -> QRAuthResponseMsg|FRAuthResponseMsg|None:
             return None
     return obj
 
-    
+if __name__ == '__main__':
+    btobj = QRAuthRequestMsg.toBytes(b'abcd0000000000000000000000000000')
+    print(btobj)
+    print(len(btobj))

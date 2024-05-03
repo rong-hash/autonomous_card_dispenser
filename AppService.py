@@ -6,6 +6,7 @@ from CameraService import QPicamera2Item, QPicamera2ItemService
 from NetService import NetService, NetSignalType, ConnectionStatus
 from NetMessageUtil import *
 from threading import Timer, Lock
+from NetMessageUtil import QRAuthRequestMsg, FRAuthRequestMsg, ServerAckMsg, ErrCode, unpackMsg
 
 class Forms():
     RootWindow = 0
@@ -16,6 +17,25 @@ class Forms():
 class Transition():
     Pop = 0
     Push = 1
+
+class ProcessSigs:
+    #   Status Define:
+    #   0:Success
+    #   1:Failed_Timed_Out
+    #   2:Failed_Bad_Identity
+    #   3:Failed_Bad_Card
+    #   4:Failed_Mechanical_Failure
+    #   5:Failed_Hardware_Fault
+    #   6:Authorized
+    #   7:Request Expired
+    success = 0
+    failed_timeout = 1
+    failed_bad_identity = 2
+    failed_bad_card = 3
+    failed_mechanical = 4
+    failed_hardware = 5
+    authorized = 6
+    expired = 7
 
 class TimeoutCheck:
     def __init__(self, handler, timeout) -> None:
@@ -59,6 +79,9 @@ class QMLSigHub(QObject):
     videoFeedStop = pyqtSignal()
     loadForm = pyqtSignal(str,int,name = 'loadForm')
     resultReceived = pyqtSignal(int,name = "resultReceived")
+    
+
+    
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self.formStatus = Forms.MainScreen
@@ -211,6 +234,20 @@ class QMLSigHub(QObject):
             case NetSignalType.request:
                 pass
             case NetSignalType.response:
+                obj = unpackMsg(data)
+                if obj == None: return
+                if isinstance(obj, QRAuthResponseMsg) or isinstance(obj,FRAuthResponseMsg):
+                    match (obj.err):
+                        case ErrCode.success:
+                            self.resultReceived.emit(ProcessSigs.authorized)
+                        case ErrCode.invalid:
+                            self.resultReceived.emit(ProcessSigs.failed_bad_identity)
+                            self.delayedReturn(5)
+                        case ErrCode.expired:
+                            self.resultReceived.emit(ProcessSigs.expired)
+                            self.delayedReturn(5)
+                        case _: 
+                            raise RuntimeError("Unknown Response")
                 pass
             case NetSignalType.timeout:
                 if (self.formStatus == Forms.Process):

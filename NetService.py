@@ -99,20 +99,19 @@ class NetService(QObject):
     
         if (len(msg.payload) == 0): return
         print(f'payload_len:{len(msg.payload)}')
-        if (msg.payload[0] in self.expected_types): self.expected_handler(msg.payload)
-        if (msg.payload[0] in self.request_types): self.request_handler(msg.payload)
+        if (msg.payload[0:1] in self.expected_types): self.expected_handler(msg.payload)
+        if (msg.payload[0:1] in self.request_types): self.request_handler(msg.payload)
 
         return
 
     def expected_handler(self, data:bytes):
-        msg_type = data[0]
-        self.lock.acquire()
-        if (msg_type in self.expected_types):
-            self.promise.cancel()
-            self.promise = None
-            self.expected_types.remove(msg_type)
-            self.net_message.emit(NetSignalType.response , data)
-        self.lock.release()
+        with self.lock:
+            msg_type = data[0:1]
+            if (msg_type in self.expected_types):
+                self.promise.cancel()
+                self.promise = None
+                self.expected_types.remove(msg_type)
+                self.net_message.emit(NetSignalType.response , data)
         pass
 
     def request_handler(self, data:bytes):

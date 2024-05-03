@@ -38,7 +38,8 @@ if __name__ == "__main__":
     cameraService = QPicamera2ItemService()
 
     netService = NetService()
-    netService.set_connection('10.106.65.159',8883,'icdev/term1','icdev_term1')
+    # netService.set_connection('10.106.65.159',8883,'icdev/term1','icdev_term1')
+    netService.set_connection('10.106.65.159',8883,'test/term1','icdev_term1')
 
     sighub.registerEnginee(app,engine)
     sighub.registerQML(rootObject)
