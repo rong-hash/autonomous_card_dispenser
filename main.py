@@ -8,6 +8,7 @@ from CameraService import QPicamera2Item, QPicamera2ItemService
 from picamera2 import Picamera2
 from AppService import QMLSigHub
 from NetService import NetService
+from SerialService import SerialService
 
 if __name__ == "__main__":
     os.environ["QT_QPA_PLATFORM"]="eglfs"
@@ -41,11 +42,13 @@ if __name__ == "__main__":
     # netService.set_connection('10.106.65.159',8883,'icdev/term1','icdev_term1')
     netService.set_connection('10.106.65.159',8883,'test/term1','icdev_term1')
 
+    serialService = SerialService('/dev/ttyAMA0')
+
     sighub.registerEnginee(app,engine)
     sighub.registerQML(rootObject)
     sighub.registerCameeraService(cameraService)
     sighub.registerNetService(netService)
-
+    sighub.registerSerialService(serialService)
     # # Connect signals and slots
     # cameraService.update_frame.connect(cameraItem.updateFrame)
     # cameraService.update_overlay_signal.connect(cameraItem.updateOverlay)

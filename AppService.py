@@ -6,7 +6,7 @@ from CameraService import QPicamera2Item, QPicamera2ItemService
 from NetService import NetService, NetSignalType, ConnectionStatus
 from NetMessageUtil import *
 from threading import Timer, Lock
-from NetMessageUtil import QRAuthRequestMsg, FRAuthRequestMsg, ServerAckMsg, ErrCode, unpackMsg
+from SerialService import SerialService, SerialMessageType, Tasklet
 
 class Forms():
     RootWindow = 0
@@ -36,6 +36,8 @@ class ProcessSigs:
     failed_hardware = 5
     authorized = 6
     expired = 7
+
+
 
 class TimeoutCheck:
     def __init__(self, handler, timeout) -> None:
@@ -86,6 +88,7 @@ class QMLSigHub(QObject):
         super().__init__(parent)
         self.formStatus = Forms.MainScreen
         self.netService:NetService = None
+        self.serialService:SerialService = None
         self.qrInfo:bytes = None
         self.authTimeout = TimeoutCheck(self.returnToMain,30)
         self.lang = "en"
@@ -115,6 +118,10 @@ class QMLSigHub(QObject):
         obj.net_message.connect(self.NetMessageHandle)
         self.netService = obj
         self.netService.run()
+
+    def registerSerialService(self, obj:SerialService):
+        obj.responseSignal.connect(self.SerialResponseHandle)
+        self.serialService = obj
         
     def delayedReturn(self, delay:int):
         self._delayThread = Timer(delay, self.returnToMain)
@@ -240,6 +247,12 @@ class QMLSigHub(QObject):
                     match (obj.err):
                         case ErrCode.success:
                             self.resultReceived.emit(ProcessSigs.authorized)
+                            self.serialService.expect_response(SerialMessageType.storeToReader, 
+                                                               Tasklet.issueTasklet(
+                                                                   obj.card.uid,
+                                                                   obj.card.sec1,
+                                                                   obj.card.sec2,
+                                                                   obj.id))
                         case ErrCode.invalid:
                             self.resultReceived.emit(ProcessSigs.failed_bad_identity)
                             self.delayedReturn(5)
@@ -251,8 +264,57 @@ class QMLSigHub(QObject):
                 pass
             case NetSignalType.timeout:
                 if (self.formStatus == Forms.Process):
-                    self.resultReceived.emit(1)
+                    self.resultReceived.emit(ProcessSigs.failed_timeout)
                     self.delayedReturn(5)
 
-        pass
+    @pyqtSlot(bytes, Tasklet)
+    def SerialResponseHandle(self, data:bytes, task:Tasklet):
+        if (self.formStatus == Forms.Process):
+            match (data):
+                case SerialMessageType.ack:
+                    # self.resultReceived.emit(ProcessSigs.success)
+                    pass
+                case SerialMessageType.inPosition:
+                    # self.resultReceived.emit(ProcessSigs.success)
+                    print('In Position')
+                    if task.step + 1 < len(task.seq): 
+                        task.step += 1
+                        match (task.seq[task.step]):
+                            case Tasklet.new_card_to_reader:
+                                self.serialService.expect_response(SerialMessageType.storeToReader, task)
+                                pass
+                            case Tasklet.reader_to_exit:
+                                self.serialService.expect_response(SerialMessageType.readerToExit, task)
+                                pass
+                            case Tasklet.exit_to_reader:
+                                self.serialService.expect_response(SerialMessageType.exitToReader, task)
+                                pass
+                            case Tasklet.reader_to_store:
+                                self.serialService.expect_response(SerialMessageType.readerToStore, task)
+                                pass
+                            case Tasklet.write:
+                                # self.serialService.expect_response(SerialMessageType.ack, task)
+                                pass
+                            case Tasklet.validate:
+                                # self.serialService.expect_response(SerialMessageType.ack, task)
+                                pass
+                            case Tasklet.success:
+                                self.resultReceived.emit(ProcessSigs.success)
+                            case Tasklet.fail:
+                                self.resultReceived.emit(ProcessSigs.failed_hardware)
+                            case _:
+                                pass
+                        
+
+                case SerialMessageType.failure:
+                    self.resultReceived.emit(ProcessSigs.failed_mechanical)
+                    self.delayedReturn(5)
+                case SerialMessageType.timeout:
+                    self.resultReceived.emit(ProcessSigs.failed_mechanical)
+                    self.delayedReturn(5)
+                case _:
+                    pass
+            pass
+
+        
 
