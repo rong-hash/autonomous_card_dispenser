@@ -17,6 +17,7 @@ Rectangle {
 
     property int formID: 1
     property alias buttonRequest: buttonRequest
+    property alias buttonReturn: buttonReturn
 
     Column {
         id: col

@@ -15,6 +15,10 @@ ProcessForm {
       5:Failed_Hardware_Fault
       6:Authorized
       7:Request Expired
+      8:Prepare
+      9:Insert
+      10:Not Detected
+      11:Invalid Card
     */
     Connections {
         target: stackView
@@ -52,6 +56,18 @@ ProcessForm {
                 busyIndicator.visible = false;
                 cross.visible = true;
                 text1.text = qsTr("Request Expired");
+            } else if (status == 8) {
+                text1.text = qsTr("Preparing, Please Wait...")
+            } else if (status == 9) {
+                text1.text = qsTr("Please Insert Your Card...")
+            } else if (status == 10) {
+                busyIndicator.visible = false
+                cross.visible = true;
+                text1.text = qsTr("Card Not Detected!")
+            } else if (status == 11) {
+                busyIndicator.visible = false
+                cross.visible = true;
+                text1.text = qsTr("Invalid Card")
             }
             
         }

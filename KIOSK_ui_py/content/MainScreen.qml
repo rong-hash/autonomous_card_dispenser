@@ -12,4 +12,9 @@ MainScreenForm {
         stackView.cleanForm()
         stackView.replace("Auth.qml", StackView.PushTransition);
     }
+
+    buttonReturn.onClicked: {
+        stackView.cleanForm()
+        stackView.replace("Process.qml", StackView.PushTransition);
+    }
 }
