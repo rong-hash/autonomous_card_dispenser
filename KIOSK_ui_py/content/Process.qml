@@ -19,6 +19,7 @@ ProcessForm {
       9:Insert
       10:Not Detected
       11:Invalid Card
+      12:Card Detected
     */
     Connections {
         target: stackView
@@ -68,6 +69,8 @@ ProcessForm {
                 busyIndicator.visible = false
                 cross.visible = true;
                 text1.text = qsTr("Invalid Card")
+            } else if (status == 12) {
+                text1.text = qsTr("Card Detected, Please Wait...")
             }
             
         }

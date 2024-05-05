@@ -28,60 +28,45 @@ class RfidService(QObject):
     
     def new_card_work(self, sec1:bytes, sec2:bytes, req_id:int):
         uid = self.reader.read_id_times(3)
-        if uid == None:
-            self.rfid_signal.emit(RfidServiceMsg.failure, None)
-            print('RFID Failure')
-            return
-        if len(uid) != 4:
-            self.rfid_signal.emit(RfidServiceMsg.failure, None)
-            print('RFID Failure')
-            return            
-        keyC = bytes.fromhex(self.keymgn['ps_key_c'])
-        keyA = bytes.fromhex(self.keymgn['ps_key_a'])
-        sec1 = key_encode(sec1,uid)
-        sec2 = key_encode (sec2,uid)
-        req_id = req_id.to_bytes(length = 4, byteorder='little') + np.random.randint(256,size=44,dtype=np.uint8).tobytes()
-        req_id = key_encode(req_id,uid)
-        _, dt, _ = self.reader.write_sector_times(8*4+3,keyC,sec1,3)
-        if dt == None:
-            self.rfid_signal.emit(RfidServiceMsg.failure, None)
-            print('RFID Failure 1')
-            return
-        _, dt, _ = self.reader.write_sector_times(9*4+3,keyC,sec2,3)
-        if dt == None:
-            self.rfid_signal.emit(RfidServiceMsg.failure, None)
-            print('RFID Failure 2')
-            return
-        _, dt, _ = self.reader.write_sector_times(15*4+3,keyA,req_id,3)
-        if dt == None:
-            self.rfid_signal.emit(RfidServiceMsg.failure, None)
-            print('RFID Failure 4')
-            return
-        self.rfid_signal.emit(RfidServiceMsg.write_done,(int.from_bytes(uid,"little"),))
+        if uid != None:
+            if len(uid) == 4:        
+                keyC = bytes.fromhex(self.keymgn['ps_key_c'])
+                keyA = bytes.fromhex(self.keymgn['ps_key_a'])
+                sec1 = key_encode(sec1,uid)
+                sec2 = key_encode (sec2,uid)
+                req_id = req_id.to_bytes(length = 4, byteorder='little') + np.random.randint(256,size=44,dtype=np.uint8).tobytes()
+                req_id = key_encode(req_id,uid)
+                _, dt, _ = self.reader.write_sector_times(8*4+3,keyC,sec1,3)
+                if dt != None:
+                    _, dt, _ = self.reader.write_sector_times(9*4+3,keyC,sec2,3)
+                    if dt != None:
+                        _, dt, _ = self.reader.write_sector_times(15*4+3,keyA,req_id,3)
+                        if dt != None:
+                            self.rfid_signal.emit(RfidServiceMsg.write_done,(int.from_bytes(uid,"little"),))
+                            self.wt = None
+                            return
+        self.rfid_signal.emit(RfidServiceMsg.failure, tuple())
         self.wt = None
+        print('RFID Failure')
+        return
     
     def verfiy_card_work(self):
         uid = self.reader.read_id_times(3)
-        if uid == None:
-            self.rfid_signal.emit(RfidServiceMsg.failure, None)
-            print('RFID Failure')
-            return
-        if len(uid) != 4:
-            self.rfid_signal.emit(RfidServiceMsg.failure, None)
-            print('RFID Failure')
-            return
-        keyA = bytes.fromhex(self.keymgn['ps_key_a'])
-        _, dt, _ = self.reader.read_sector_times(15*4+3,keyA,3)
-        if dt == None:
-            self.rfid_signal.emit(RfidServiceMsg.failure, None)
-            print('RFID Failure 4')
-            return
-        dt = bytes(dt)
-        req_id = key_encode(dt[0:4],uid)
-        self.rfid_signal.emit(RfidServiceMsg.read_done,(int.from_bytes(uid,"little"),int.from_bytes(req_id,"little")))
-        print(int.from_bytes(req_id,"little"))
+        if uid != None:
+            if len(uid) == 4:
+                keyA = bytes.fromhex(self.keymgn['ps_key_a'])
+                _, dt, _ = self.reader.read_sector_times(15*4+3,keyA,3)
+                if dt != None:
+                    dt = bytes(dt)
+                    req_id = key_encode(dt[0:4],uid)
+                    self.rfid_signal.emit(RfidServiceMsg.read_done,(int.from_bytes(uid,"little"),int.from_bytes(req_id,"little")))
+                    print(int.from_bytes(req_id,"little"))
+                    self.wt = None
+                    return
+        self.rfid_signal.emit(RfidServiceMsg.failure, tuple())
+        print('RFID Failure')
         self.wt = None
-        pass
+        return
 
     def new_card(self,sec1:bytes,sec2:bytes,req_id:int, uid:int):
         if self.wt != None: 

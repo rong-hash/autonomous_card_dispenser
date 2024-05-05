@@ -3,38 +3,13 @@ import threading
 import time
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
-class Tasklet:
-    new_card_to_reader = 0
-    reader_to_exit = 1
-    exit_to_reader = 2
-    reader_to_store = 3
-    write = 4
-    validate = 5
-    success = 6
-    fail = 7
-    def __init__(self) -> None:
-        self.step = -1
-        self.c_uid:int
-        self.c_sec1:bytes
-        self.c_sec2:bytes
-        self.req_id:int
-        pass
-    @staticmethod
-    def issueTasklet(uid, sec1, sec2, req_id):
-        tasklet = Tasklet()
-        # tasklet.seq = [Tasklet.new_card_to_reader,Tasklet.write, Tasklet.reader_to_exit, Tasklet.success]
-        tasklet.step = Tasklet.write
-        tasklet.c_uid = uid
-        tasklet.c_sec1 = sec1
-        tasklet.c_sec2 = sec2
-        tasklet.req_id = req_id
-        return tasklet
 
 class SerialMessageType:
     storeToReader   =  b'\x11'
     readerToStore   = b'\x12'
     exitToReader    = b'\x14'
     readerToExit    = b'\x18'
+    cardDetect   = b'\x17'
     ack          = b'\x20'
     inPosition   = b'\x2A'
     failure      = b'\x2F'
@@ -91,7 +66,7 @@ class SerialService (QObject):
                         match (data):
                             case SerialMessageType.ack:
                                 self.responseSignal.emit(data)
-                                self.promise = threading.Timer(15, self.timeout)
+                                self.promise = threading.Timer(10, self.timeout)
                                 self.promise.start()
                                 pass
                             case SerialMessageType.inPosition:

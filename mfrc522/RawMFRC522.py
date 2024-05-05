@@ -55,7 +55,7 @@ class RawMFRC522:
         count = 0
         for count in range(max_try):
             id, text = self.write_no_block(data, trailer_block)
-            if id != None: break
+            if text != None: break
         self.KEY = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
         return id, text, count
     
@@ -292,6 +292,9 @@ class RawMFRC522:
                     # Write the data to the corresponding data blocks
                     self.MFRC522.WriteTag(block_num, data[(i*16):(i+1)*16])
                     i += 1
+            else:
+                self.MFRC522.StopCrypto1()
+                return None, None
 
             # Stop encryption
             self.MFRC522.StopCrypto1()

@@ -25,7 +25,7 @@ icInfo.room = 0x0
 icInfo.sec1 = cd_dump[8*64:8*64+48]+b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 icInfo.sec2 = cd_dump[9*64:9*64+48]+b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 icInfo.uid = int.from_bytes(cd_dump[0:4],'little')
-requests = set([NetMessageType.FRAuthRequest, NetMessageType.QRAuthRequest, NetMessageType.IssueNotification])
+requests = set([NetMessageType.FRAuthRequest, NetMessageType.QRAuthRequest, NetMessageType.IssueNotification, NetMessageType.ReturnNotification])
 
 
 def connect_mqtt() -> mqtt_client.Client:
@@ -70,6 +70,12 @@ def subscribe(client: mqtt_client.Client):
         elif isinstance(obj, IssueNotificationMsg):
             print(f"IssueNotificationMsg:uid={obj.uid}")
             client.publish(topic, ServerAckMsg.toBytes(ErrCode.success),2)
+        elif isinstance(obj, ReturnNotificationMsg):
+            print(f"ReturnNotificationMsg:uid={obj.uid},req_id={obj.req_id}")
+            if obj.req_id == 654 or obj.req_id == 655:
+                client.publish(topic, ServerAckMsg.toBytes(ErrCode.success),2)
+            else:
+                client.publish(topic, ServerAckMsg.toBytes(ErrCode.invalid),2)
 
 
     print(client.subscribe(topic))

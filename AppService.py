@@ -1,12 +1,12 @@
-from PyQt5.QtCore import QObject,QVariant, QMetaType, pyqtSlot, pyqtSignal, QTranslator
+from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, QTranslator
 from PyQt5.QtQuick import QQuickItem
 from PyQt5.QtGui import QGuiApplication
-from PyQt5.QtQml import QQmlApplicationEngine, qmlRegisterType
+from PyQt5.QtQml import QQmlApplicationEngine
 from CameraService import QPicamera2Item, QPicamera2ItemService
 from NetService import NetService, NetSignalType, ConnectionStatus
 from NetMessageUtil import *
 from threading import Timer, Lock
-from SerialService import SerialService, SerialMessageType, Tasklet
+from SerialService import SerialService, SerialMessageType
 from RfidService import RfidService, RfidServiceMsg
 
 class Forms():
@@ -29,6 +29,11 @@ class ProcessSigs:
     #   5:Failed_Hardware_Fault
     #   6:Authorized
     #   7:Request Expired
+    #   8:Prepare
+    #   9:Insert
+    #   10:Not Detected
+    #   11:Invalid Card
+    #   12:Detected
     success = 0
     failed_timeout = 1
     failed_bad_identity = 2
@@ -37,6 +42,11 @@ class ProcessSigs:
     failed_hardware = 5
     authorized = 6
     expired = 7
+    prepare = 8
+    insert = 9
+    not_detected = 10
+    invalid = 11
+    detected = 12
 
 
 
@@ -95,6 +105,7 @@ class QMLSigHub(QObject):
         self.serialService:SerialService = None
         self.rfidService:RfidService = None
         self.qrInfo:bytes = None
+        self.faceInfo:bytes = None
         self.authTimeout = TimeoutCheck(self.returnToMain,30)
         self.lang = "en"
         self.app = None
@@ -203,7 +214,8 @@ class QMLSigHub(QObject):
                     #     5)          
                     self.faceInfo = None
                 else:
-                    raise RuntimeError("No Data to Process")
+                    self.inprocess = EDReturn(self)
+                    self.inprocess.start()
                 #self.resultReceived.emit(2)
                 pass
             case _:
@@ -257,108 +269,17 @@ class QMLSigHub(QObject):
                 else:
                     print("[MQTT] Connected")
                 pass
-            # case NetSignalType.request:
-            #     pass
-            # case NetSignalType.response:
-            #     obj = unpackMsg(data)
-            #     if obj == None: return
-            #     if isinstance(obj, QRAuthResponseMsg) or isinstance(obj,FRAuthResponseMsg):
-            #         match (obj.err):
-            #             case ErrCode.success:
-            #                 self.resultReceived.emit(ProcessSigs.authorized)
-            #                 self.serialService.expect_response(SerialMessageType.storeToReader, 
-            #                                                    Tasklet.issueTasklet(
-            #                                                        obj.card.uid,
-            #                                                        obj.card.sec1,
-            #                                                        obj.card.sec2,
-            #                                                        obj.id))
-            #             case ErrCode.invalid:
-            #                 self.resultReceived.emit(ProcessSigs.failed_bad_identity)
-            #                 self.delayedReturn(5)
-            #             case ErrCode.expired:
-            #                 self.resultReceived.emit(ProcessSigs.expired)
-            #                 self.delayedReturn(5)
-            #             case _: 
-            #                 raise RuntimeError("Unknown Response")
-            #     pass
-            # case NetSignalType.timeout:
-            #     if (self.formStatus == Forms.Process):
-            #         self.resultReceived.emit(ProcessSigs.failed_timeout)
-            #         self.delayedReturn(5)
 
-    @pyqtSlot(bytes, Tasklet)
-    def SerialResponseHandle(self, data:bytes, task:Tasklet):
-        if (self.formStatus == Forms.Process):
-            match (data):
-                case SerialMessageType.ack:
-                    # self.resultReceived.emit(ProcessSigs.success)
-                    pass
-                case SerialMessageType.inPosition:
-                    # self.resultReceived.emit(ProcessSigs.success)
-                    print('In Position')
-                    match (task.step):
-                        case Tasklet.new_card_to_reader:
-                            self.serialService.expect_response(SerialMessageType.storeToReader, task)
-                            pass
-                        case Tasklet.reader_to_exit:
-                            self.serialService.expect_response(SerialMessageType.readerToExit, task)
-                            pass
-                        case Tasklet.exit_to_reader:
-                            self.serialService.expect_response(SerialMessageType.exitToReader, task)
-                            pass
-                        case Tasklet.reader_to_store:
-                            self.serialService.expect_response(SerialMessageType.readerToStore, task)
-                            pass
-                        case Tasklet.write:
-                            # self.serialService.expect_response(SerialMessageType.ack, task)
-                            pass
-                        case Tasklet.validate:
-                            # self.serialService.expect_response(SerialMessageType.ack, task)
-                            pass
-                        case Tasklet.success:
-                            self.resultReceived.emit(ProcessSigs.success)
-                            self.delayedReturn(5)
-                        case Tasklet.fail:
-                            self.resultReceived.emit(ProcessSigs.failed_hardware)
-                            self.delayedReturn(5)
-                        case _:
-                            pass
-                        
 
-                case SerialMessageType.failure:
-                    self.resultReceived.emit(ProcessSigs.failed_mechanical)
-                    self.delayedReturn(5)
-                case SerialMessageType.timeout:
-                    self.resultReceived.emit(ProcessSigs.failed_mechanical)
-                    self.delayedReturn(5)
-                case _:
-                    pass
-            pass
-
-    @pyqtSlot(int,tuple)
-    def RfidResponseHandle(self, signal, data):
-        match(signal):
-            case RfidServiceMsg.read_done:
-                self.netService.ExpectResponseSlot(ReturnNotificationMsg.toBytes(data[0],data[1])
-                                                   ,NetMessageType.ServerAck
-                                                   ,5)
-                pass
-            case RfidServiceMsg.write_done:
-                self.netService.ExpectResponseSlot(IssueNotificationMsg.toBytes(data[0])
-                                    ,NetMessageType.ServerAck
-                                    ,5)
-                pass
-            case RfidServiceMsg.failure:
-                # self.resultReceived.emit(ProcessSigs.failed_hardware)
-                # self.delayedReturn(5)
-                pass
-        pass
 
 
 class EDGeneral(QObject):
     def __init__(self, source:QMLSigHub, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self.sighub = source
+
+    def start(self):
+        pass
     
 
 class EDIssue(EDGeneral):
@@ -416,6 +337,7 @@ class EDIssue(EDGeneral):
             case SerialMessageType.inPosition:
                 self.sighub.rfidService.rfid_signal.connect(self.writeHandle)
                 print('write triggerred')
+                self.sighub.resultReceived.emit(ProcessSigs.prepare)
                 self.sighub.rfidService.new_card(self.card.sec1,self.card.sec2,self.req_id, self.card.uid)
                 self.sighub.serialService.responseSignal.disconnect(self.preWriteHandle)
             case SerialMessageType.failure:
@@ -445,7 +367,8 @@ class EDIssue(EDGeneral):
 
             case RfidServiceMsg.failure:
                 self.sighub.resultReceived.emit(ProcessSigs.failed_hardware)
-                self.sighub.delayedReturn(5)
+                self.sighub.delayedReturn(45)
+                self.sighub.serialService.expect_response(SerialMessageType.readerToStore)
                 self.sighub.rfidService.rfid_signal.disconnect(self.writeHandle)
                 pass
             case _:
@@ -505,4 +428,93 @@ class EDIssue(EDGeneral):
                 pass
         
         pass
+
+class EDReturn(EDGeneral):
+    def __init__(self, source:QMLSigHub) -> None:
+        super().__init__(source)
+
+    def start(self):
+        self.sighub.serialService.responseSignal.connect(self.detectHandle)        
+        self.sighub.serialService.expect_response(SerialMessageType.cardDetect)
+        self.sighub.resultReceived.emit(ProcessSigs.insert)
+    
+    @pyqtSlot(bytes)
+    def detectHandle(self, data:bytes):
+        match (data):
+            case SerialMessageType.ack:
+                pass
+            case SerialMessageType.inPosition:
+                self.sighub.rfidService.rfid_signal.connect(self.readHandle)
+                self.sighub.resultReceived.emit(ProcessSigs.detected)
+                self.sighub.rfidService.verify_card()
+                self.sighub.serialService.responseSignal.disconnect(self.detectHandle)
+            case SerialMessageType.failure:
+                self.sighub.resultReceived.emit(ProcessSigs.failed_mechanical)
+                self.sighub.delayedReturn(5)
+                self.sighub.serialService.responseSignal.disconnect(self.detectHandle)
+            case SerialMessageType.timeout:
+                self.sighub.resultReceived.emit(ProcessSigs.not_detected)
+                self.sighub.delayedReturn(5)
+                self.sighub.serialService.responseSignal.disconnect(self.detectHandle)
+            case _:
+                pass
+        
+        pass
+
+    @pyqtSlot(int, tuple)
+    def readHandle(self, status, data):
+        match (status):
+            case RfidServiceMsg.read_done: 
+                print('read done!')
+                self.sighub.netService.net_message.connect(self.serverAckHandle)
+                self.sighub.netService.ExpectResponseSlot(ReturnNotificationMsg.toBytes(data[0],data[1])
+                                                   ,NetMessageType.ServerAck
+                                                   ,5)
+                self.sighub.rfidService.rfid_signal.disconnect(self.readHandle)
+                pass
+
+            case RfidServiceMsg.failure:
+                self.sighub.resultReceived.emit(ProcessSigs.invalid)
+                self.sighub.serialService.expect_response(SerialMessageType.readerToExit)
+                self.sighub.delayedReturn(45)
+                self.sighub.rfidService.rfid_signal.disconnect(self.readHandle)
+                pass
+            case _:
+                pass
+        pass
+
+
+    @pyqtSlot(int,object)
+    def serverAckHandle(self, status:int, data:int|bytes|None):
+        print('serverAckHandle')
+        if status == NetSignalType.response:
+            obj = unpackMsg(data)
+            if obj == None: return
+            if isinstance(obj, ServerAckMsg):
+
+                match (obj.err):
+                    case ErrCode.success:
+                        # self.sighub.serialService.responseSignal.connect(self.finalHandle)
+                        self.sighub.resultReceived.emit(ProcessSigs.success)
+                        self.sighub.serialService.expect_response(SerialMessageType.readerToStore)
+                        self.sighub.delayedReturn(10)
+                    # case ErrCode.expired:
+                    #     pass
+                    case ErrCode.invalid:
+                        self.sighub.resultReceived.emit(ProcessSigs.invalid)
+                        self.sighub.serialService.expect_response(SerialMessageType.readerToExit)
+                        self.sighub.delayedReturn(30)
+                    case _: 
+                        raise RuntimeError(f"Unknown Response:{str(obj.err)}")
+                
+                self.sighub.netService.net_message.disconnect(self.serverAckHandle)
+
+        elif status == NetSignalType.timeout:
+            self.sighub.resultReceived.emit(ProcessSigs.failed_timeout)
+            self.sighub.serialService.expect_response(SerialMessageType.readerToExit)
+            self.sighub.delayedReturn(45)
+            self.sighub.netService.net_message.disconnect(self.serverAckHandle)
+        pass
+
+
 
