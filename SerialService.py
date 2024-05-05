@@ -13,8 +13,7 @@ class Tasklet:
     success = 6
     fail = 7
     def __init__(self) -> None:
-        self.step = 0
-        self.seq = []
+        self.step = -1
         self.c_uid:int
         self.c_sec1:bytes
         self.c_sec2:bytes
@@ -23,7 +22,8 @@ class Tasklet:
     @staticmethod
     def issueTasklet(uid, sec1, sec2, req_id):
         tasklet = Tasklet()
-        tasklet.seq = [Tasklet.new_card_to_reader,Tasklet.write, Tasklet.reader_to_exit, Tasklet.success]
+        # tasklet.seq = [Tasklet.new_card_to_reader,Tasklet.write, Tasklet.reader_to_exit, Tasklet.success]
+        tasklet.step = Tasklet.write
         tasklet.c_uid = uid
         tasklet.c_sec1 = sec1
         tasklet.c_sec2 = sec2
@@ -43,7 +43,7 @@ class SerialMessageType:
 
 class SerialService (QObject):
 
-    responseSignal = pyqtSignal(bytes,Tasklet)
+    responseSignal = pyqtSignal(bytes)
 
     def __init__(self, device:str) -> None:
         super().__init__(parent=None)
@@ -55,12 +55,10 @@ class SerialService (QObject):
         self._pollThread.daemon = True
         self._pollThread.start()
         self.promise:threading.Timer = None
-        self.curtask:Tasklet = None
         pass
 
-    def expect_response(self,data:bytes, task:Tasklet):
+    def expect_response(self,data:bytes):
         with self.serLock:
-            self.curtask = task
             self.promise = threading.Timer(5,self.timeout)
             self.promise.start()
             self.write_to_serial(data)
@@ -69,7 +67,7 @@ class SerialService (QObject):
         with self.serLock:
             if self.promise != None:
                 self.promise = None
-                self.responseSignal.emit(SerialMessageType.timeout, self.curtask)
+                self.responseSignal.emit(SerialMessageType.timeout)
 
     def write_to_serial(self,data:bytes):
         self.ser.write(data)  # Encode string data to bytes and write to serial port
@@ -92,16 +90,16 @@ class SerialService (QObject):
                         self.promise.cancel() 
                         match (data):
                             case SerialMessageType.ack:
-                                self.responseSignal.emit(data, self.curtask)
+                                self.responseSignal.emit(data)
                                 self.promise = threading.Timer(15, self.timeout)
                                 self.promise.start()
                                 pass
                             case SerialMessageType.inPosition:
-                                self.responseSignal.emit(data, self.curtask)
+                                self.responseSignal.emit(data)
                                 self.promise = None
                                 pass
                             case SerialMessageType.failure:
-                                self.responseSignal.emit(data, self.curtask)
+                                self.responseSignal.emit(data)
                                 self.promise = None
                                 pass
                             case _:

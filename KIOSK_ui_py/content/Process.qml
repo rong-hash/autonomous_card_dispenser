@@ -23,7 +23,7 @@ ProcessForm {
             if (status == 0) {
                 busyIndicator.visible = false;
                 cross.source = "images/check.png";
-                check.visible = true;
+                cross.visible = true;
                 text1.text = qsTr("Success");
             } else if (status == 1) {
                 busyIndicator.visible = false;

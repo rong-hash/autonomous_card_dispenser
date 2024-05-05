@@ -154,5 +154,13 @@ class NetService(QObject):
         self.promise.start()
         pass
 
+if __name__ == '__main__':
+    from NetMessageUtil import *
+    netService = NetService(None)
+    netService.set_connection('10.106.65.159',8883,'test/term1','icdev_term1')
+    netService.run()
+    netService.ExpectResponseSlot(IssueNotificationMsg.toBytes(12)
+                                                   ,NetMessageType.ServerAck
+                                                   ,5)
 
     

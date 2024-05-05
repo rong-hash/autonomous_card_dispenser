@@ -25,7 +25,7 @@ icInfo.room = 0x0
 icInfo.sec1 = cd_dump[8*64:8*64+48]+b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 icInfo.sec2 = cd_dump[9*64:9*64+48]+b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 icInfo.uid = int.from_bytes(cd_dump[0:4],'little')
-requests = set([NetMessageType.FRAuthRequest, NetMessageType.QRAuthRequest])
+requests = set([NetMessageType.FRAuthRequest, NetMessageType.QRAuthRequest, NetMessageType.IssueNotification])
 
 
 def connect_mqtt() -> mqtt_client.Client:
@@ -67,6 +67,9 @@ def subscribe(client: mqtt_client.Client):
         elif isinstance(obj, FRAuthRequestMsg):
             print("FRAuthRequestMsg")
             client.publish(topic, FRAuthResponseMsg.toBytes(655,ErrCode.success, icInfo),2)
+        elif isinstance(obj, IssueNotificationMsg):
+            print(f"IssueNotificationMsg:uid={obj.uid}")
+            client.publish(topic, ServerAckMsg.toBytes(ErrCode.success),2)
 
 
     print(client.subscribe(topic))

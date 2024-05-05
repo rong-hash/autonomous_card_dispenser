@@ -9,6 +9,7 @@ from picamera2 import Picamera2
 from AppService import QMLSigHub
 from NetService import NetService
 from SerialService import SerialService
+from RfidService import RfidService
 
 if __name__ == "__main__":
     os.environ["QT_QPA_PLATFORM"]="eglfs"
@@ -44,11 +45,14 @@ if __name__ == "__main__":
 
     serialService = SerialService('/dev/ttyAMA0')
 
+    rfidService = RfidService(None)
+
     sighub.registerEnginee(app,engine)
     sighub.registerQML(rootObject)
     sighub.registerCameeraService(cameraService)
     sighub.registerNetService(netService)
     sighub.registerSerialService(serialService)
+    sighub.registerRfidService(rfidService)
     # # Connect signals and slots
     # cameraService.update_frame.connect(cameraItem.updateFrame)
     # cameraService.update_overlay_signal.connect(cameraItem.updateOverlay)

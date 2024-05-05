@@ -5,10 +5,13 @@ import threading
 import json
 from RPi.GPIO import cleanup
 
+class RfidServiceMsg:
+    write_done = 0
+    read_done = 1
+    failure = 2
+
 class RfidService(QObject):
-    rfid_write_done = pyqtSignal(int)
-    rfid_failure = pyqtSignal()
-    rfid_read_done = pyqtSignal(int,int)
+    rfid_signal = pyqtSignal(int, tuple)
 
     def __init__(self, parent: QObject) -> None:
         super().__init__(parent)
@@ -26,11 +29,11 @@ class RfidService(QObject):
     def new_card_work(self, sec1:bytes, sec2:bytes, req_id:int):
         uid = self.reader.read_id_times(3)
         if uid == None:
-            self.rfid_failure.emit()
+            self.rfid_signal.emit(RfidServiceMsg.failure, None)
             print('RFID Failure')
             return
         if len(uid) != 4:
-            self.rfid_failure.emit()
+            self.rfid_signal.emit(RfidServiceMsg.failure, None)
             print('RFID Failure')
             return            
         keyC = bytes.fromhex(self.keymgn['ps_key_c'])
@@ -41,49 +44,52 @@ class RfidService(QObject):
         req_id = key_encode(req_id,uid)
         _, dt, _ = self.reader.write_sector_times(8*4+3,keyC,sec1,3)
         if dt == None:
-            self.rfid_failure.emit()
+            self.rfid_signal.emit(RfidServiceMsg.failure, None)
             print('RFID Failure 1')
             return
         _, dt, _ = self.reader.write_sector_times(9*4+3,keyC,sec2,3)
         if dt == None:
-            self.rfid_failure.emit()
+            self.rfid_signal.emit(RfidServiceMsg.failure, None)
             print('RFID Failure 2')
             return
         _, dt, _ = self.reader.write_sector_times(15*4+3,keyA,req_id,3)
         if dt == None:
-            self.rfid_failure.emit()
+            self.rfid_signal.emit(RfidServiceMsg.failure, None)
             print('RFID Failure 4')
             return
-        self.rfid_write_done.emit(int.from_bytes(uid,"little"))
+        self.rfid_signal.emit(RfidServiceMsg.write_done,(int.from_bytes(uid,"little"),))
         self.wt = None
     
     def verfiy_card_work(self):
         uid = self.reader.read_id_times(3)
         if uid == None:
-            self.rfid_failure.emit()
+            self.rfid_signal.emit(RfidServiceMsg.failure, None)
             print('RFID Failure')
             return
         if len(uid) != 4:
-            self.rfid_failure.emit()
+            self.rfid_signal.emit(RfidServiceMsg.failure, None)
             print('RFID Failure')
             return
         keyA = bytes.fromhex(self.keymgn['ps_key_a'])
         _, dt, _ = self.reader.read_sector_times(15*4+3,keyA,3)
         if dt == None:
-            self.rfid_failure.emit()
+            self.rfid_signal.emit(RfidServiceMsg.failure, None)
             print('RFID Failure 4')
             return
         dt = bytes(dt)
         req_id = key_encode(dt[0:4],uid)
-        self.rfid_read_done.emit(int.from_bytes(uid,"little"),int.from_bytes(req_id,"little"))
+        self.rfid_signal.emit(RfidServiceMsg.read_done,(int.from_bytes(uid,"little"),int.from_bytes(req_id,"little")))
         print(int.from_bytes(req_id,"little"))
         self.wt = None
         pass
 
-    def new_card(self,sec1:bytes,sec2:bytes,req_id:int):
+    def new_card(self,sec1:bytes,sec2:bytes,req_id:int, uid:int):
         if self.wt != None: 
             return #AppService should ensure that only one thread is running
         req_id = req_id & 0xFFFFFFFF
+        uidbin = uid.to_bytes(4,'little')
+        sec1 = key_encode(sec1, uidbin)
+        sec2 = key_encode(sec2, uidbin)
         self.wt = threading.Thread(target=self.new_card_work,args=(sec1,sec2,req_id))
         self.wt.start()
 

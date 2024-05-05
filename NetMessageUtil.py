@@ -83,6 +83,25 @@ class FRAuthRequestMsg():
             '=1sI',
             NetMessageType.FRAuthRequest,
             0x0) + img
+    
+class IssueNotificationMsg():
+    uid:int
+    @staticmethod
+    def toBytes(uid:int) -> bytes:
+        return struct.pack(
+            '=1sI',
+            NetMessageType.IssueNotification,
+            uid) 
+
+class ReturnNotificationMsg():
+    uid:int
+    req_id:int
+    @staticmethod
+    def toBytes(uid:int,req_id:int) -> bytes:
+        return struct.pack(
+            '=1sII',
+            NetMessageType.ReturnNotification,
+            uid,req_id) 
 
 class ServerAckMsg():
     err:ErrCode
@@ -124,21 +143,28 @@ def unpackMsg(raw:bytes) -> object|None:
         case NetMessageType.FRAuthRequest:
             if len(raw) < 5: return None
             obj = FRAuthRequestMsg()
-            obj.id = struct.unpack('I',raw[1:5])
+            obj.id = struct.unpack('I',raw[1:5])[0]
             obj.img = raw[5:]
             pass
         case NetMessageType.InitNotification:
             pass
         case NetMessageType.IssueNotification:
+            if len(raw) < 5: return None
+            obj = IssueNotificationMsg()
+            obj.uid = struct.unpack('I',raw[1:5])[0]
             pass
         case NetMessageType.ReturnNotification:
+            if len(raw) < 9: return None
+            obj = ReturnNotificationMsg()
+            obj.uid, obj.req_id = struct.unpack('II',raw[1:9])
             pass
+        
         case NetMessageType.RegisterNotification:
             pass
         case NetMessageType.ServerAck:
             if len(raw) < 5: return None
             obj = ServerAckMsg()
-            obj.err = struct.unpack('i',raw[1:5])
+            obj.err = struct.unpack('i',raw[1:5])[0]
             pass
         case NetMessageType.RemoteCmd:
             pass
