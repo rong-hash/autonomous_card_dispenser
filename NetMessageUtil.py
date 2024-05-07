@@ -9,10 +9,12 @@ class NetMessageType:
     IssueNotification = b'\x21'
     ReturnNotification = b'\x22'
     RegisterNotification = b'\x23'
+    TerminalErrorNotification = b'\x24'
     ServerAck = b'\x2F'
     RemoteCmd = b'\x30'
     TermAck = b'\x3F'
     LastwillMsg = b'\x50'
+
 class ErrCode:
     success = 0
     invalid = 1
@@ -86,12 +88,13 @@ class FRAuthRequestMsg():
     
 class IssueNotificationMsg():
     uid:int
+    req_id:int
     @staticmethod
-    def toBytes(uid:int) -> bytes:
+    def toBytes(uid:int,req_id:int) -> bytes:
         return struct.pack(
-            '=1sI',
+            '=1sII',
             NetMessageType.IssueNotification,
-            uid) 
+            uid,req_id) 
 
 class ReturnNotificationMsg():
     uid:int
@@ -149,9 +152,9 @@ def unpackMsg(raw:bytes) -> object|None:
         case NetMessageType.InitNotification:
             pass
         case NetMessageType.IssueNotification:
-            if len(raw) < 5: return None
+            if len(raw) < 9: return None
             obj = IssueNotificationMsg()
-            obj.uid = struct.unpack('I',raw[1:5])[0]
+            obj.uid, obj.req_id = struct.unpack('II',raw[1:9])
             pass
         case NetMessageType.ReturnNotification:
             if len(raw) < 9: return None

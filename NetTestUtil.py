@@ -68,7 +68,7 @@ def subscribe(client: mqtt_client.Client):
             print("FRAuthRequestMsg")
             client.publish(topic, FRAuthResponseMsg.toBytes(655,ErrCode.success, icInfo),2)
         elif isinstance(obj, IssueNotificationMsg):
-            print(f"IssueNotificationMsg:uid={obj.uid}")
+            print(f"IssueNotificationMsg:uid={obj.uid}, req_id={obj.req_id}")
             client.publish(topic, ServerAckMsg.toBytes(ErrCode.success),2)
         elif isinstance(obj, ReturnNotificationMsg):
             print(f"ReturnNotificationMsg:uid={obj.uid},req_id={obj.req_id}")

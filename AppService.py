@@ -359,7 +359,7 @@ class EDIssue(EDGeneral):
             case RfidServiceMsg.write_done: 
                 print('write done!')
                 self.sighub.netService.net_message.connect(self.serverAckHandle)
-                self.sighub.netService.ExpectResponseSlot(IssueNotificationMsg.toBytes(data[0])
+                self.sighub.netService.ExpectResponseSlot(IssueNotificationMsg.toBytes(data[0],self.req_id)
                                                    ,NetMessageType.ServerAck
                                                    ,5)
                 self.sighub.rfidService.rfid_signal.disconnect(self.writeHandle)
