@@ -63,14 +63,21 @@ def handle_message(payload, client):
             student_id = result[0][0]
             request_id = result[0][1]
             # check whether the student already has a card
-            result = Database.select(cnx, cursor, 'rc_card', 'students', 'hold', f"student_id = {student_id}")
+            result = Database.select(cnx, cursor, 'rc_card', 'students', 'hold, uid, sec1, sec2', f"student_id = {student_id}")
             hold = result[0][0]
             if not hold:
                 # student does not hold a card
                 # tell the terminal to issue a new card
+
+                # build ICInfo object
+                ic_info = ICInfo()
+                ic_info.room = 0
+                ic_info.uid = result[0][1]
+                ic_info.sec1 = result[0][2]
+                ic_info.sec2 = result[0][3]
                 response_bytes = QRAuthResponseMsg.toBytes(request_id, 
                                                            ErrCode.success, 
-                                                           NetSender.icInfo)
+                                                           ic_info)
 
         # Publish the response to the MQTT broker
         client.publish(topic, response_bytes, qos=2)

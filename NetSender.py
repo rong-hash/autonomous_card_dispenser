@@ -19,7 +19,7 @@ icInfo.sec1 = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00
 icInfo.sec2 = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 icInfo.uid = 32
 
-test_token = "82ed6f7e8697d4ba3803df6f04e0de84"
+test_token = "b770b9098bf36efad7398c1a6b306c41"
 
 def publish(client):
     id = random.randint(1, 1000)  # 生成一个随机的请求ID
