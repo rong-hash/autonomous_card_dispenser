@@ -1,5 +1,5 @@
-from hikvision import face_recognition_body, get_signature, get_headers
-from image_process import binary2base64
+from facedetection.hikvision import face_recognition_body, get_signature, get_headers
+from facedetection.image_process import binary2base64
 import json
 import time
 import uuid

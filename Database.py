@@ -36,8 +36,17 @@ def insert(cnx, cursor, database, table, columns, data):
 
 
 def update(cnx, cursor, database, table, columns, data, condition):
-    query = f"UPDATE {database}.{table} SET {columns} = {data} WHERE {condition}"
-    
+    query = f"UPDATE {database}.{table}"
+    columns = columns.replace(" ", "").split(',')
+    data = data.replace(" ", "").split(',')
+    if columns and data and len(columns) == len(data):
+        query += f" SET "
+        for i in range(len(columns)):
+            query += f"{columns[i]} = {data[i]}"
+            if i < len(columns) - 1:
+                query += ", "
+    if condition:
+        query += f" WHERE {condition}"
     try:
         cursor.execute(query)
         cnx.commit()

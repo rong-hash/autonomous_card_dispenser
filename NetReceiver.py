@@ -5,6 +5,8 @@ from NetMessageUtil import *
 import Database
 import random
 import NetSender
+from facedetection.access_control import change_door_access
+from facedetection.face_recognition import face_recognition
 
 
 broker = "10.106.65.159"
@@ -96,19 +98,50 @@ def handle_message(payload, client):
         if result:
             student_id = result[0][0]
             # find info about the student's card and building token
-            result = Database.select(cnx, cursor, 'rc_card', 'students', 'uid, sec1, sec2', f"student_id = {student_id}")
             
-
+            door = Database.select(cnx, cursor, 'rc_card', 'students', 'door_info', f"student_id = {student_id}")
+            
+            if not door:
+                # do not ACK
+                response_bytes = ServerAckMsg.toBytes(ErrCode.invalid)
+                client.publish(topic, response_bytes, os=2)
+                
+            door_info = door[0][0]
             # call api to give rights to open the door of the building
-            # api(card_uid, building token)
+            # @TODO: find card name from csv file based on card uid
+            # @TODO: find channel from csv file based on door_info
+            card_uid_str = extend_uid(card_uid)
+            while True:
+                if change_door_access("测试卡1", card_uid_str, door_info, 2, 0):
+                    break
 
             # update the database
-            Database.update(cnx, cursor, 'rc_card', 'students', 'hold', 'True', f"student_id = {student_id}")
+            Database.update(cnx, cursor, 'rc_card', 'students', 'hold,holding_uid', 'True,'+str(card_uid), f"student_id = {student_id}")
 
             # return server ACK
             response_bytes = ServerAckMsg.toBytes(ErrCode.success)
             client.publish(topic, response_bytes, qos=2)
+    elif isinstance(obj, ReturnNotificationMsg):
+        print("Handling Return Notification")
+        card_uid = obj.uid
+        
+        # query database, get the student_id from the request_id
+        result = Database.select(cnx, cursor, 'rc_card', 'students', 'student_id, door_info', f"holding_uid = {card_uid}")
 
+        if result:
+            student_id = result[0][0]
+            door_info = result[0][1]
+
+            card_uid = extend_uid(card_uid)
+            # @TODO: find card name from csv file based on card uid
+            # @TODO: find channel from csv file based on door_info
+            while True: # delete the card's access to building's door
+                if change_door_access("测试卡1", card_uid, door_info, 2, 2):
+                    break
+            # update the database
+            Database.update(cnx, cursor, 'rc_card', 'students', 'hold,holding_uid', 'False,Null', f"student_id = {student_id}")
+
+                    
     
 
 def main():

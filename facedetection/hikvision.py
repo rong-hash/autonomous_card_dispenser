@@ -17,7 +17,7 @@ import uuid
 import hmac  # hex-based message authentication code 哈希消息认证码
 import hashlib  # 提供了很多加密的算法
 import requests
-from image_process import image_to_base64
+from facedetection.image_process import image_to_base64
 import datetime
 
 
