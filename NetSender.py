@@ -19,6 +19,8 @@ icInfo.sec1 = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00
 icInfo.sec2 = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 icInfo.uid = 32
 
+test_token = "82ed6f7e8697d4ba3803df6f04e0de84"
+
 def publish(client):
     id = random.randint(1, 1000)  # 生成一个随机的请求ID
     token = b'testtoken1234567890123456789012'  # 模拟的QR token，确保长度为32字节
@@ -31,8 +33,8 @@ def publish(client):
 
     request = QRAuthRequestMsg()
     request.id = 32
-    token_str = 'cde431c89cf59eb51f76b294968dfeef'
-    request.token = token_str.encode()
+    
+    request.token = test_token.encode()
 
     msg = request.toBytes(request.token)
 

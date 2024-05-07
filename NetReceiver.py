@@ -50,16 +50,16 @@ def handle_message(payload, client):
     if isinstance(obj, QRAuthRequestMsg):
         # QR Code Authentication Request
         print("Handling QR Code Authentication Request")
+        # set default response to invalid
+        response_bytes = QRAuthResponseMsg.toBytes(0, ErrCode.invalid, NetSender.icInfo)
 
         # Unpack the payload
         token = obj.token
 
         # query database, whether the token exists
         result = Database.select(cnx, cursor, 'rc_card', 'tokens', 'student_id, request_id', f"token = '{token.decode()}'")
-        # set default response to invalid
-        response_bytes = QRAuthResponseMsg.toBytes(0, ErrCode.invalid, NetSender.icInfo)
-
-        if len(result[0]) > 1: # token exists
+        
+        if result: # token exists
             student_id = result[0][0]
             request_id = result[0][1]
             # check whether the student already has a card
@@ -81,7 +81,26 @@ def handle_message(payload, client):
         
     elif isinstance(obj, IssueNotificationMsg):
         print("Handling Issue Notification")
-        card_id = obj.uid
+        card_uid = obj.uid
+        request_id = obj.req_id
+        # query database, get the student_id from the request_id
+        result = Database.select(cnx, cursor, 'rc_card', 'tokens', 'student_id', f"request_id = {request_id}")
+
+        if result:
+            student_id = result[0][0]
+            # find info about the student's card and building token
+            result = Database.select(cnx, cursor, 'rc_card', 'students', 'uid, sec1, sec2', f"student_id = {student_id}")
+            
+
+            # call api to give rights to open the door of the building
+            # api(card_uid, building token)
+
+            # update the database
+            Database.update(cnx, cursor, 'rc_card', 'students', 'hold', 'True', f"student_id = {student_id}")
+
+            # return server ACK
+            response_bytes = ServerAckMsg.toBytes(ErrCode.success)
+            client.publish(topic, response_bytes, qos=2)
 
     
 
