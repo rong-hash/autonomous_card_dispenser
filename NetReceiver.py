@@ -21,7 +21,7 @@ cnx = mysql.connector.connect(**Database.config)
 cursor = cnx.cursor()
 
 # the set of message types that the receiver can handle
-receive_requests = set([NetMessageType.FRAuthRequest, NetMessageType.QRAuthRequest, NetMessageType.IssueNotification])
+receive_requests = set([NetMessageType.FRAuthRequest, NetMessageType.QRAuthRequest, NetMessageType.IssueNotification, NetMessageType.ReturnNotification])
 
 
 def on_connect(client, userdata, flags, rc):
@@ -57,7 +57,7 @@ def handle_message(payload, client):
 
         # Unpack the payload
         token = obj.token
-
+        print(f"Token: {token.decode()}")
         # query database, whether the token exists
         result = Database.select(cnx, cursor, 'rc_card', 'tokens', 'student_id, request_id', f"token = '{token.decode()}'")
         
@@ -127,7 +127,7 @@ def handle_message(payload, client):
         
         # query database, get the student_id from the request_id
         result = Database.select(cnx, cursor, 'rc_card', 'students', 'student_id, door_info', f"holding_uid = {card_uid}")
-
+        response_bytes = ServerAckMsg.toBytes(ErrCode.invalid)
         if result:
             student_id = result[0][0]
             door_info = result[0][1]
@@ -140,9 +140,14 @@ def handle_message(payload, client):
                     break
             # update the database
             Database.update(cnx, cursor, 'rc_card', 'students', 'hold,holding_uid', 'False,Null', f"student_id = {student_id}")
-
-                    
-    
+            # return server ACK
+            response_bytes = ServerAckMsg.toBytes(ErrCode.success)
+            
+            
+        
+        client.publish(topic, response_bytes, qos=2)
+    print("Finished handling")          
+    return 
 
 def main():
     client = mqtt_client.Client(mqtt_client.CallbackAPIVersion.VERSION1)
