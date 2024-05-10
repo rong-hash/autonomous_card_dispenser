@@ -4,6 +4,7 @@ from paho.mqtt import client as mqtt_client
 from paho.mqtt.enums import CallbackAPIVersion
 from ssl import SSLError
 from NetMessageUtil import *
+import json
 
 
 broker = '10.106.65.159'
@@ -25,6 +26,12 @@ icInfo.room = 0x0
 icInfo.sec1 = cd_dump[8*64:8*64+48]+b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 icInfo.sec2 = cd_dump[9*64:9*64+48]+b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 icInfo.uid = int.from_bytes(cd_dump[0:4],'little')
+test_card = dict()
+test_card["uid"] = icInfo.uid
+test_card['room'] = 0x0
+test_card['sec1'] = icInfo.sec1.hex()
+test_card['sec2'] = icInfo.sec2.hex()
+# json.dump(test_card,open('test_card_info.json','w'))
 requests = set([NetMessageType.FRAuthRequest, NetMessageType.QRAuthRequest, NetMessageType.IssueNotification, NetMessageType.ReturnNotification])
 
 

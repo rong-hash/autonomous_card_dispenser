@@ -304,7 +304,7 @@ class MFRC522:
             self.SetBitMask(self.BitFramingReg, 0x80)
 
         # Wait for command execution (timeout)
-        i = 2000
+        i = 15
         while True:
             time.sleep(0.35)
             n = self.ReadReg(self.CommIrqReg)
