@@ -111,7 +111,7 @@ class QMLSigHub(QObject):
         self.app = None
         self.engine = None
         self.trans = QTranslator()
-        self.trans.load('lang/mls.qm')
+        self.trans.load('lang/zh.qm')
 
         self.inprocess:EDGeneral = None
         return

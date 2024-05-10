@@ -20,6 +20,7 @@ ProcessForm {
       10:Not Detected
       11:Invalid Card
       12:Card Detected
+      13:No Available Card
     */
     Connections {
         target: stackView
@@ -71,6 +72,8 @@ ProcessForm {
                 text1.text = qsTr("Invalid Card")
             } else if (status == 12) {
                 text1.text = qsTr("Card Detected, Please Wait...")
+            } else if (status == 13) {
+                text1.text = qsTr("Out of Service: No availble Card")
             }
             
         }
