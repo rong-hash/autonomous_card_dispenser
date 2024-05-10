@@ -179,6 +179,12 @@ def unpackMsg(raw:bytes) -> object|None:
             return None
     return obj
 
+def extend_uid(uid:int) -> str:
+    uid = str(uid)
+    if len(uid) < 10:
+        uid = '0'*(10-len(uid)) + uid
+    return uid
+
 if __name__ == '__main__':
     btobj = QRAuthRequestMsg.toBytes(b'abcd0000000000000000000000000000')
     print(btobj)
