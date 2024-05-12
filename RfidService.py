@@ -146,7 +146,30 @@ if __name__ == '__main__':
     # print(key_encode(bytes([1,2,3,4,5,6,7,8]),bytes([223,132,130,230])))
 
     # key = [0xFF,0xFF,0xFF,0xFF,0xFF,0xFF]
-    rs = RfidService(None)
+
+    # rs = RfidService(None)
+    # obj = rs.reader.read_id_times(3)
+    # if isinstance(obj,bytes):
+    #     print(obj.hex())
+    # else:
+    #     print('Not Detected')
+
+    rs = RawMFRC522(bus = 0, device = 1, pin_rst = 18)
+    rs2 = RawMFRC522(bus = 0, device = 0, pin_rst = 22)
+    for i in range(50):
+        obj = rs.read_id_times(3)
+        obj2 = rs2.read_id_times(3)
+        print('1:',end='')
+        if isinstance(obj,bytes):
+            print(obj.hex())
+        else:
+            print('Not Detected')
+        print('2:',end='')
+        if isinstance(obj2,bytes):
+            print(obj2.hex())
+        else:
+            print('Not Detected')
+    cleanup()
     # keymgn = json.load(open('rfid_keys.json'))
     # keyA = bytes.fromhex(keymgn['ps_key_a'])
     # keyB = keyA
@@ -170,19 +193,19 @@ if __name__ == '__main__':
 
     # dump_info()
 
-    f = open('710a20.dump','rb')
+    # f = open('710a20.dump','rb')
 
-    cd_dump = f.read()
+    # cd_dump = f.read()
 
-    f.close()
+    # f.close()
 
-    sec1 = cd_dump[8*64:8*64+48]
-    sec2 = cd_dump[9*64:9*64+48]
-    uid = cd_dump[0:4]
+    # sec1 = cd_dump[8*64:8*64+48]
+    # sec2 = cd_dump[9*64:9*64+48]
+    # uid = cd_dump[0:4]
 
 
-    sec1 = key_encode(sec1,uid)
-    sec2 = key_encode(sec2,uid)
+    # sec1 = key_encode(sec1,uid)
+    # sec2 = key_encode(sec2,uid)
 
     # print ('uid')
     # print(uid.hex())
@@ -195,7 +218,7 @@ if __name__ == '__main__':
     # req_id = np.random.randint(256,size=4,dtype=np.uint8).tobytes()
 
     # rs.new_card(sec1,sec2,652)
-    rs.verify_card()
+    # rs.verify_card()
 
     pass
 
