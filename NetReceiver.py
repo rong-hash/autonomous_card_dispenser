@@ -4,6 +4,7 @@ import mysql.connector
 from NetMessageUtil import *
 import Database
 import random
+import os
 import NetSender
 from facedetection.access_control import change_door_access
 from facedetection.face_recognition import face_recognition
@@ -86,6 +87,52 @@ def handle_message(payload, client):
 
     elif isinstance(obj, FRAuthRequestMsg):
         print("Handling Faical Recoginition Auth Request")
+        img = obj.img
+        # call face recognition api
+        name, student_id = face_recognition(img)
+        name, student_id = "陈志榕", "3200118998"
+
+        response_bytes = FRAuthResponseMsg.toBytes(0, ErrCode.invalid, NetSender.icInfo)
+        # if the student is recognized, create a new token and request id for the student 
+        if student_id != "None" and name != "None":
+            # check if a student with the student_id exists in the tokens table
+            result = Database.select(cnx, cursor, 'rc_card', 'tokens', 'student_id, request_id', f"student_id = {student_id}")
+            if not result:
+                # randomly generate a 32 hex token
+                token = os.urandom(16)
+                token = token.hex()
+
+                # randomly generate an int used as request_id
+                request_id = os.urandom(4)
+                request_id = int.from_bytes(request_id, 'big')
+                while True:
+                    # insert the token into the database, then find icinfo from the database based on student id
+                    if Database.insert(cnx, cursor, 'rc_card', 'tokens', 'student_id, token, request_id', f"{student_id}, '{token}', '{request_id}'"):
+                        break
+            else:
+                request_id = result[0][1]
+
+
+            
+            
+            result = Database.select(cnx, cursor, 'rc_card', 'students', 'hold, uid, sec1, sec2', f"student_id = {student_id}")
+            hold = result[0][0]
+            if not hold:
+                # student does not hold a card
+                # tell the terminal to issue a new card
+
+                # build ICInfo object
+                ic_info = ICInfo()
+                ic_info.room = 0
+                ic_info.uid = result[0][1]
+                ic_info.sec1 = result[0][2]
+                ic_info.sec2 = result[0][3]
+                response_bytes = QRAuthResponseMsg.toBytes(request_id, 
+                                                        ErrCode.success, 
+                                                        ic_info)
+                
+        
+        client.publish(topic, response_bytes, qos=2)
 
         
     elif isinstance(obj, IssueNotificationMsg):
