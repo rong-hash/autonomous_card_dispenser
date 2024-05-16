@@ -13,6 +13,12 @@ class SerialMessageType:
     ack          = b'\x20'
     inPosition   = b'\x2A'
     failure      = b'\x2F'
+    overflow    = b'\x28'
+    storeToReader_nr   =  b'\x41'
+    readerToStore_nr   = b'\x42'
+    exitToReader_nr    = b'\x44'
+    readerToExit_nr    = b'\x48'
+    homeposition = b'\x49'
     timeout      = b'\xFF'
 
 
@@ -34,8 +40,15 @@ class SerialService (QObject):
 
     def expect_response(self,data:bytes):
         with self.serLock:
+            if self.promise != None:
+                print("Serial is Busy")
+                return
             self.promise = threading.Timer(5,self.timeout)
             self.promise.start()
+            self.write_to_serial(data)
+    
+    def order(self, data:bytes):
+        with self.serLock:
             self.write_to_serial(data)
 
     def timeout(self):
@@ -59,14 +72,14 @@ class SerialService (QObject):
         while True:
             with self.serLock:
                 if self.ser.in_waiting > 0:
-                    data = self.ser.read(self.ser.in_waiting)
+                    data = self.ser.read(1)
                     print(f"Received data: {data}")
                     if (self.promise != None):
                         self.promise.cancel() 
                         match (data):
                             case SerialMessageType.ack:
                                 self.responseSignal.emit(data)
-                                self.promise = threading.Timer(10, self.timeout)
+                                self.promise = threading.Timer(40, self.timeout)
                                 self.promise.start()
                                 pass
                             case SerialMessageType.inPosition:
@@ -74,6 +87,10 @@ class SerialService (QObject):
                                 self.promise = None
                                 pass
                             case SerialMessageType.failure:
+                                self.responseSignal.emit(data)
+                                self.promise = None
+                                pass
+                            case SerialMessageType.overflow:
                                 self.responseSignal.emit(data)
                                 self.promise = None
                                 pass
@@ -85,6 +102,7 @@ class SerialService (QObject):
 
 if __name__ == '__main__':
     ser = SerialService('/dev/ttyAMA0')
+    ser.write_to_serial(SerialMessageType.exitToReader)
     while True:
         pass
 

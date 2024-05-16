@@ -95,8 +95,9 @@
         <translation>暂停服务：没有可用的卡片</translation>
     </message>
     <message>
-        <source>Authorized</source>
-        <translation type="vanished">已验证</translation>
+        <location filename="../../../dev/KIOSK_py/KIOSK_ui_py/content/Process.qml" line="76"/>
+        <source>Cannot Return a Card: Storage is Full</source>
+        <translation>无法归还卡片：卡箱已满</translation>
     </message>
 </context>
 <context>

@@ -4,6 +4,7 @@ import os
 from PyQt5.QtGui import QGuiApplication
 from PyQt5.QtQml import QQmlApplicationEngine, qmlRegisterType
 from PyQt5.QtCore import QTranslator
+from PyQt5.QtQuick import QQuickWindow
 from CameraService import QPicamera2Item, QPicamera2ItemService
 from picamera2 import Picamera2
 from AppService import QMLSigHub

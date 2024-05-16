@@ -21,6 +21,7 @@ ProcessForm {
       11:Invalid Card
       12:Card Detected
       13:No Available Card
+      14:Full
     */
     Connections {
         target: stackView
@@ -73,7 +74,13 @@ ProcessForm {
             } else if (status == 12) {
                 text1.text = qsTr("Card Detected, Please Wait...")
             } else if (status == 13) {
+                busyIndicator.visible = false
+                cross.visible = true;
                 text1.text = qsTr("Out of Service: No availble Card")
+            } else if (status == 14) {
+                busyIndicator.visible = false
+                cross.visible = true;
+                text1.text = qsTr("Cannot Return a Card: Storage is Full")
             }
             
         }

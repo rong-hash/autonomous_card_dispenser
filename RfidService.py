@@ -1,14 +1,17 @@
 import numpy as np
 from mfrc522.RawMFRC522 import RawMFRC522
+from mfrc522.MFRC522 import MFRC522
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 import threading
 import json
-from RPi.GPIO import cleanup
+from RPi import GPIO
+from time import sleep
 
 class RfidServiceMsg:
     write_done = 0
     read_done = 1
     failure = 2
+    card_available = 3
 
 class RfidService(QObject):
     rfid_signal = pyqtSignal(int, tuple)
@@ -19,11 +22,16 @@ class RfidService(QObject):
         self.keymgn = json.load(keyfile)
         keyfile.close()
         self.reader = RawMFRC522()
+        GPIO.setup(18,GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         self.wt:threading.Thread|None = None
+        self.empty_sec = np.zeros(64,dtype=np.uint8).tobytes()
 
 
-    def write_attempt(self,data:bytes,block:int, key:list):
-        pass
+    def available_check(self):
+        for i in range(3):
+            if GPIO.input(18) == GPIO.HIGH:
+                return RfidServiceMsg.card_available
+        return RfidServiceMsg.failure
 
     
     def new_card_work(self, sec1:bytes, sec2:bytes, req_id:int):
@@ -78,6 +86,12 @@ class RfidService(QObject):
         self.wt = threading.Thread(target=self.new_card_work,args=(sec1,sec2,req_id))
         self.wt.start()
 
+    def erase_card(self):
+        if self.wt != None:
+            return
+        self.wt = threading.Thread(target=self.new_card_work,args=(self.empty_sec,self.empty_sec,0xFFFFFFFF))
+        self.wt.start()
+
     def verify_card(self):
         if self.wt != None: 
             return
@@ -85,7 +99,7 @@ class RfidService(QObject):
         self.wt.start()
     
     def __del__(self):
-        cleanup()
+        GPIO.cleanup()
 
 def key_encode(data:bytes, uid:bytes) -> bytes:
     if (len(uid) != 4): 
@@ -154,22 +168,32 @@ if __name__ == '__main__':
     # else:
     #     print('Not Detected')
 
-    rs = RawMFRC522(bus = 0, device = 1, pin_rst = 18)
+    # rs = RawMFRC522(bus = 0, device = 1, pin_rst = 18)
     rs2 = RawMFRC522(bus = 0, device = 0, pin_rst = 22)
+    # init_card()
+    dump_info()
+    exit()
+    # GPIO.setmode(GPIO.BOARD)
+    # GPIO.setup(18,GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
     for i in range(50):
-        obj = rs.read_id_times(3)
+        # obj = rs.read_id_times(3)
         obj2 = rs2.read_id_times(3)
-        print('1:',end='')
-        if isinstance(obj,bytes):
-            print(obj.hex())
-        else:
-            print('Not Detected')
-        print('2:',end='')
+        # print('1:',end='')
+        # if isinstance(obj,bytes):
+        #     print(obj.hex())
+        # else:
+        #     print('Not Detected')
+        # print('2:',end='')
         if isinstance(obj2,bytes):
             print(obj2.hex())
         else:
             print('Not Detected')
-    cleanup()
+        # (status, tag) = rs2.MFRC522.Request(rs2.MFRC522.PICC_REQALL)
+        # print(status)
+        # print(f'{i}:{GPIO.input(18)}')
+        sleep(1)
+        # print(rs2.read_id_times(3).hex())
+    GPIO.cleanup()
     # keymgn = json.load(open('rfid_keys.json'))
     # keyA = bytes.fromhex(keymgn['ps_key_a'])
     # keyB = keyA

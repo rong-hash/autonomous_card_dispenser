@@ -47,6 +47,8 @@ class ProcessSigs:
     not_detected = 10
     invalid = 11
     detected = 12
+    out_of_card = 13
+    overflow = 14
 
 
 
@@ -110,6 +112,7 @@ class QMLSigHub(QObject):
         self.lang = "en"
         self.app = None
         self.engine = None
+        self.rootobj = None
         self.trans = QTranslator()
         self.trans.load('lang/zh.qm')
 
@@ -125,6 +128,7 @@ class QMLSigHub(QObject):
         root.langChanged.connect(self.langChangedHandle)
         root.cleanForm.connect(self.cleanHandle)
         root.returnToMain.connect(self.returnToMainAsync)
+        self.rootobj = root
 
     def registerCameeraService(self,obj:QPicamera2ItemService):
         self.videoFeedStart.connect(obj.register_camearitem)
@@ -235,6 +239,7 @@ class QMLSigHub(QObject):
 
                 case _:
                     raise RuntimeError("Unsupported Language")
+        # self.rootobj.grabWindow().save("screenshot.jpg", "jpg")
             
     @pyqtSlot(bytes)
     def QRDecodeHandle(self, code:bytes):
@@ -288,6 +293,10 @@ class EDIssue(EDGeneral):
         self.msg = msg
 
     def start(self):
+        if self.sighub.rfidService.available_check() == RfidServiceMsg.failure:
+            self.sighub.resultReceived.emit(ProcessSigs.out_of_card)
+            self.sighub.delayedReturn(5)
+            return
         self.sighub.netService.net_message.connect(self.verifyHandle)
 
         if isinstance(self.msg,QRAuthRequestMsg):
@@ -340,15 +349,17 @@ class EDIssue(EDGeneral):
                 self.sighub.resultReceived.emit(ProcessSigs.prepare)
                 self.sighub.rfidService.new_card(self.card.sec1,self.card.sec2,self.req_id, self.card.uid)
                 self.sighub.serialService.responseSignal.disconnect(self.preWriteHandle)
-            case SerialMessageType.failure:
-                self.sighub.resultReceived.emit(ProcessSigs.failed_mechanical)
-                self.sighub.delayedReturn(5)
-                self.sighub.serialService.responseSignal.disconnect(self.preWriteHandle)
+            # case SerialMessageType.failure:
+            #     self.sighub.resultReceived.emit(ProcessSigs.failed_mechanical)
+            #     self.sighub.delayedReturn(15)
+            #     self.sighub.serialService.responseSignal.disconnect(self.preWriteHandle)
             case SerialMessageType.timeout:
                 self.sighub.resultReceived.emit(ProcessSigs.failed_mechanical)
-                self.sighub.delayedReturn(5)
+                self.sighub.serialService.order(SerialMessageType.homeposition)
+                self.sighub.delayedReturn(15)
                 self.sighub.serialService.responseSignal.disconnect(self.preWriteHandle)
             case _:
+                print("Unknown Response at preWriteHandle")
                 pass
         
         pass
@@ -412,19 +423,20 @@ class EDIssue(EDGeneral):
                 pass
             case SerialMessageType.inPosition:
                 self.sighub.resultReceived.emit(ProcessSigs.success)
-                self.sighub.delayedReturn(45)
+                self.sighub.delayedReturn(5)
                 self.sighub.serialService.responseSignal.disconnect(self.finalHandle)
-            case SerialMessageType.failure:
-                self.sighub.resultReceived.emit(ProcessSigs.failed_mechanical)
-                self.sighub.serialService.expect_response(SerialMessageType.readerToStore)
-                self.sighub.delayedReturn(45)
-                self.sighub.serialService.responseSignal.disconnect(self.finalHandle)
+            # case SerialMessageType.failure:
+            #     self.sighub.resultReceived.emit(ProcessSigs.failed_mechanical)
+            #     self.sighub.serialService.expect_response(SerialMessageType.readerToStore)
+            #     self.sighub.delayedReturn(30)
+            #     self.sighub.serialService.responseSignal.disconnect(self.finalHandle)
             case SerialMessageType.timeout:
                 self.sighub.resultReceived.emit(ProcessSigs.failed_mechanical)
-                self.sighub.serialService.expect_response(SerialMessageType.readerToStore)
-                self.sighub.delayedReturn(45)
+                self.sighub.serialService.order(SerialMessageType.homeposition)
+                self.sighub.delayedReturn(30)
                 self.sighub.serialService.responseSignal.disconnect(self.finalHandle)
             case _:
+                print("Unexpected response at finalHandle")
                 pass
         
         pass
@@ -444,18 +456,46 @@ class EDReturn(EDGeneral):
             case SerialMessageType.ack:
                 pass
             case SerialMessageType.inPosition:
-                self.sighub.rfidService.rfid_signal.connect(self.readHandle)
+                self.sighub.serialService.responseSignal.connect(self.atReaderHandle)
                 self.sighub.resultReceived.emit(ProcessSigs.detected)
-                self.sighub.rfidService.verify_card()
+                self.sighub.serialService.expect_response(SerialMessageType.exitToReader)
                 self.sighub.serialService.responseSignal.disconnect(self.detectHandle)
-            case SerialMessageType.failure:
-                self.sighub.resultReceived.emit(ProcessSigs.failed_mechanical)
-                self.sighub.delayedReturn(5)
+            case SerialMessageType.overflow:
+                self.sighub.resultReceived.emit(ProcessSigs.overflow)
+                self.sighub.delayedReturn(25)
                 self.sighub.serialService.responseSignal.disconnect(self.detectHandle)
             case SerialMessageType.timeout:
                 self.sighub.resultReceived.emit(ProcessSigs.not_detected)
                 self.sighub.delayedReturn(5)
                 self.sighub.serialService.responseSignal.disconnect(self.detectHandle)
+            case _:
+                pass
+        
+        pass
+
+    @pyqtSlot(bytes)
+    def atReaderHandle(self, data:bytes):
+        match (data):
+            case SerialMessageType.ack:
+                pass
+            case SerialMessageType.inPosition:
+                self.sighub.rfidService.rfid_signal.connect(self.readHandle)
+                self.sighub.resultReceived.emit(ProcessSigs.detected)
+                self.sighub.rfidService.verify_card()
+                self.sighub.serialService.responseSignal.disconnect(self.atReaderHandle)
+            case SerialMessageType.failure:
+                self.sighub.resultReceived.emit(ProcessSigs.not_detected)
+                self.sighub.delayedReturn(15)
+                self.sighub.serialService.responseSignal.disconnect(self.atReaderHandle)
+            # case SerialMessageType.overflow:
+            #     self.sighub.resultReceived.emit(ProcessSigs.overflow)
+            #     self.sighub.delayedReturn(5)
+            #     self.sighub.serialService.responseSignal.disconnect(self.atReaderHandle)
+            case SerialMessageType.timeout:
+                self.sighub.resultReceived.emit(ProcessSigs.failed_mechanical)
+                self.sighub.serialService.order(SerialMessageType.readerToExit_nr)
+                self.sighub.delayedReturn(15)
+                self.sighub.serialService.responseSignal.disconnect(self.atReaderHandle)
             case _:
                 pass
         
@@ -475,8 +515,8 @@ class EDReturn(EDGeneral):
 
             case RfidServiceMsg.failure:
                 self.sighub.resultReceived.emit(ProcessSigs.invalid)
-                self.sighub.serialService.expect_response(SerialMessageType.readerToExit)
-                self.sighub.delayedReturn(45)
+                self.sighub.serialService.order(SerialMessageType.readerToExit_nr)
+                self.sighub.delayedReturn(15)
                 self.sighub.rfidService.rfid_signal.disconnect(self.readHandle)
                 pass
             case _:
@@ -495,14 +535,16 @@ class EDReturn(EDGeneral):
                 match (obj.err):
                     case ErrCode.success:
                         # self.sighub.serialService.responseSignal.connect(self.finalHandle)
-                        self.sighub.resultReceived.emit(ProcessSigs.success)
-                        self.sighub.serialService.expect_response(SerialMessageType.readerToStore)
-                        self.sighub.delayedReturn(10)
+                        # self.sighub.resultReceived.emit(ProcessSigs.success)
+                        self.sighub.rfidService.rfid_signal.connect(self.eraseHandle)
+                        self.sighub.rfidService.erase_card()
+                        # self.sighub.serialService.expect_response(SerialMessageType.readerToStore)
+                        # self.sighub.delayedReturn(10)
                     # case ErrCode.expired:
                     #     pass
                     case ErrCode.invalid:
                         self.sighub.resultReceived.emit(ProcessSigs.invalid)
-                        self.sighub.serialService.expect_response(SerialMessageType.readerToExit)
+                        self.sighub.serialService.order(SerialMessageType.readerToExit_nr)
                         self.sighub.delayedReturn(30)
                     case _: 
                         raise RuntimeError(f"Unknown Response:{str(obj.err)}")
@@ -511,9 +553,31 @@ class EDReturn(EDGeneral):
 
         elif status == NetSignalType.timeout:
             self.sighub.resultReceived.emit(ProcessSigs.failed_timeout)
-            self.sighub.serialService.expect_response(SerialMessageType.readerToExit)
-            self.sighub.delayedReturn(45)
+            self.sighub.serialService.order(SerialMessageType.readerToExit_nr)
+            self.sighub.delayedReturn(30)
             self.sighub.netService.net_message.disconnect(self.serverAckHandle)
+        pass
+
+    @pyqtSlot(int, tuple)
+    def eraseHandle(self, status, data):
+        match (status):
+            case RfidServiceMsg.write_done: 
+                print('write done!')
+                self.sighub.resultReceived.emit(ProcessSigs.success)
+                self.sighub.serialService.expect_response(SerialMessageType.readerToStore)
+                self.sighub.delayedReturn(5)
+                self.sighub.rfidService.rfid_signal.disconnect(self.eraseHandle)
+                pass
+
+            case RfidServiceMsg.failure:
+                print('erase failed')
+                self.sighub.resultReceived.emit(ProcessSigs.success)
+                self.sighub.serialService.expect_response(SerialMessageType.readerToStore)
+                self.sighub.delayedReturn(5)
+                self.sighub.rfidService.rfid_signal.disconnect(self.eraseHandle)
+                pass
+            case _:
+                pass
         pass
 
 
