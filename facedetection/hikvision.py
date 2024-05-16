@@ -17,7 +17,7 @@ import uuid
 import hmac  # hex-based message authentication code 哈希消息认证码
 import hashlib  # 提供了很多加密的算法
 import requests
-from facedetection.image_process import image_to_base64
+from image_process import image_to_base64
 import datetime
 
 
@@ -112,7 +112,7 @@ def change_authority(resourceIndexCode, resourceType, channelNos, personId, oper
     # Adding two minutes to the current datetime
     current_datetime = current_datetime + datetime.timedelta(hours=8)
 
-    new_datetime = current_datetime + datetime.timedelta(minutes=2)
+    new_datetime = current_datetime + datetime.timedelta(minutes=30)
 
     # Format the datetime as YYYY-MM-DDTHH:MM:SS.mmm and add the timezone offset as +00:00
     formatted_datetime = current_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + '+08:00'
@@ -123,9 +123,29 @@ def change_authority(resourceIndexCode, resourceType, channelNos, personId, oper
         "resourceInfo": {
             "channelNos": [channelNos],
             "resourceIndexCode": resourceIndexCode,
-            "resourceType": resourceType,
+            "resourceType": resourceType
+        },
+        "personInfo": {
+            "personId": personId,
+            "operatorType": operatorType,
             "startTime": formatted_datetime,
-            "endTime": formatted_new_datetime
+            "endTime": formatted_new_datetime,
+            "cards": [{
+                "card": card_id,
+                "status": operatorType # 这个status和上面的operator type一样的吗
+            }]
+        }
+    }
+    return body
+
+def remove_authority(resourceIndexCode, resourceType, channelNos, personId, operatorType, card_id):
+
+    body = {
+        "taskType": 1,
+        "resourceInfo": {
+            "channelNos": [channelNos],
+            "resourceIndexCode": resourceIndexCode,
+            "resourceType": resourceType
         },
         "personInfo": {
             "personId": personId,
@@ -137,25 +157,6 @@ def change_authority(resourceIndexCode, resourceType, channelNos, personId, oper
         }
     }
     return body
-
-# def change_authority(resourceIndexCode, resourceType, channelNos, personId, operatorType, card_id):
-#     body = {
-#         "taskType": 1,
-#         "resourceInfo": {
-#             "channelNos": [channelNos],
-#             "resourceIndexCode": resourceIndexCode,
-#             "resourceType": resourceType
-#         },
-#         "personInfo": {
-#             "personId": personId,
-#             "operatorType": operatorType,
-#             "cards": [{
-#                 "card": card_id,
-#                 "status": operatorType # 这个status和上面的operator type一样的吗
-#             }]
-#         }
-#     }
-#     return body
 
 
 
